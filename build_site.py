@@ -14,11 +14,11 @@ import yaml
 ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = ROOT / "site.yml"
 
-META_RE = re.compile(r"^#\+([A-Z0-9_]+):\s*(.*?)\s*$")
+META_RE = re.compile(r"^#\+([A-Z0-9_]+):\s*(.*?)\s*$", re.IGNORECASE)
 LINK_RE = re.compile(r"""(?:href|src)=["']([^"'#]+(?:#[^"']*)?)["']""")
 PLACEHOLDER_RE = re.compile(r"\{\{\s*([a-z_][a-z0-9_]*)\s*\}\}")
 
-REQUIRED_META = ("TITLE", "DESCRIPTION")
+REQUIRED_META = ("TITLE",)
 
 
 @dataclass(frozen=True)
@@ -182,7 +182,7 @@ def parse_org_metadata(path: Path) -> dict[str, str]:
                 m = META_RE.match(line)
                 if m:
                     key, value = m.groups()
-                    meta[key] = value.strip()
+                    meta[key.upper()] = value.strip()
                 continue
 
             # First real content line: stop scanning metadata.
@@ -205,7 +205,7 @@ def load_note_meta(path: Path, notes_dir: Path) -> NoteMeta:
         relative_path=relative_path,
         slug=relative_path.with_suffix("").as_posix(),
         title=meta["TITLE"],
-        description=meta["DESCRIPTION"],
+        description=meta.get("DESCRIPTION", ""),
     )
 
 

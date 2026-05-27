@@ -197,7 +197,7 @@ It performs these steps:
 
 1. Reads `site.yml`.
 2. Finds Org notes under `notes.root`.
-3. Reads `#+TITLE` and `#+DESCRIPTION`.
+3. Reads `#+TITLE` and optional `#+DESCRIPTION` metadata. Metadata keys are case-insensitive.
 4. Reads the matching HTML fragment from `fragments.root`.
 5. Renders note pages and `index.html`.
 6. Copies configured assets.

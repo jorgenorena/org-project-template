@@ -87,7 +87,7 @@ index:
 
 ## Note metadata
 
-Each Org file should start with simple metadata.
+Each Org file should start with simple metadata. Metadata keys are case-insensitive.
 
 ```org
 #+TITLE: FLRW background cosmology
@@ -102,10 +102,10 @@ Each Org file should start with simple metadata.
 Required:
 
 - `TITLE`
-- `DESCRIPTION`
 
 Optional but useful:
 
+- `DESCRIPTION`
 - `DATE`
 - `SECTION`
 - `ORDER`
