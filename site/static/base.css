@@ -319,6 +319,33 @@ code.org-verbatim {
 }
 
 /* =========================
+   Display math
+   ========================= */
+
+.math-display {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  min-height: 0;
+  margin: 1.2rem 0;
+  padding: 0.35rem 0;
+  overflow-x: auto;
+  overflow-y: visible;
+  background: transparent;
+}
+
+.math-display mjx-container[display="true"] {
+  width: max-content;
+  max-width: none;
+  margin: 0 auto !important;
+}
+
+.math-display svg {
+  max-width: none;
+  height: auto;
+}
+
+/* =========================
    Code blocks and examples
    ========================= */
 
