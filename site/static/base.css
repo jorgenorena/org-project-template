@@ -698,23 +698,47 @@ figcaption,
    Responsive layout
    ========================= */
 
-@media (max-width: 1100px) {
-  .page {
-    width: auto;
-    max-width: none;
-  }
+body.layout-collapsed .menu-toggle {
+  display: inline-flex;
 }
 
-@media (max-width: 900px) {
-  .menu-toggle {
+body.layout-collapsed .layout {
+  display: block;
+}
+
+body.layout-collapsed .sidebar {
+  position: fixed;
+  top: var(--topbar-height);
+  left: 0;
+  bottom: 0;
+  width: min(19rem, 88vw);
+  height: auto;
+  transform: translateX(-100%);
+  transition: transform 0.18s ease;
+  z-index: 40;
+  border-right: 1px solid var(--rule);
+}
+
+body.layout-collapsed.menu-open .sidebar {
+  transform: translateX(0);
+}
+
+body.layout-collapsed .page {
+  width: auto;
+  max-width: none;
+  padding: 1.6rem 1.25rem 4rem;
+}
+
+@media (max-width: calc(16rem + 2.25rem + 105ch)) {
+  body:not(.layout-measured) .menu-toggle {
     display: inline-flex;
   }
 
-  .layout {
+  body:not(.layout-measured) .layout {
     display: block;
   }
 
-  .sidebar {
+  body:not(.layout-measured) .sidebar {
     position: fixed;
     top: var(--topbar-height);
     left: 0;
@@ -727,13 +751,21 @@ figcaption,
     border-right: 1px solid var(--rule);
   }
 
-  body.menu-open .sidebar {
+  body:not(.layout-measured).menu-open .sidebar {
     transform: translateX(0);
   }
 
-  .page {
+  body:not(.layout-measured) .page {
     width: auto;
+    max-width: none;
     padding: 1.6rem 1.25rem 4rem;
+  }
+}
+
+@media (max-width: 900px) {
+  .site-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 
