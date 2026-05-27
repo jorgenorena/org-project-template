@@ -1,0 +1,27 @@
+site:
+  title: Advanced Cosmology
+  output: public
+  static: static
+
+notes:
+  root: notes
+  public_prefix: ""
+
+fragments:
+  root: build
+
+templates:
+  page: site/templates/page.html
+  index: site/templates/index.html
+
+assets:
+  - from: site/static
+    to: static
+  - from: results
+    to: results
+  - from: notes/figures
+    to: figures
+
+index:
+  title: Notes
+  description: Course and project notes

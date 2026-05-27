@@ -1,0 +1,253 @@
+#+TITLE: Expansion of the power spectrum estimator in Wick polynomials
+#+DESCRIPTION: A test
+
+* Setup
+
+Consider the estimator of the power spectrum
+
+\[\hat{P}(k_a) = \frac{1}{V N_a} \sum_{|\mathbf{p}| \in k_a} \delta(\mathbf{p})\delta(-\mathbf{p})\,.\]
+
+We expand each matter density perturbation in perturbation theory
+
+\[\delta(\mathbf{p}) = \sum_{n=1}^\infty \delta^{(n)}(\mathbf{p})\,,\]
+
+Where \(\delta^{(n)}\) is
+
+\[\delta^{(n)}(\mathbf{p}) = \int_{\mathbf{q}_1, \ldots, \mathbf{q}_n}^{\mathbf{p}} F_n(\mathbf{q}_1, \ldots, \mathbf{q}_n) \delta_0(\mathbf{q}_1) \cdots \delta_0(\mathbf{q}_n)\,,\]
+
+where
+
+\[\int_{\mathbf{q}_1, \ldots, \mathbf{q}_n}^{\mathbf{p}} \equiv \int \frac{d^3 q_1}{(2\pi)^3} \cdots \frac{d^3 q_n}{(2\pi)^3} (2\pi)^3 \delta_D(\mathbf{p} - \mathbf{q}_1 - \cdots - \mathbf{q}_n)\,.\]
+
+This \(F_n\) can be any kernel including for example counter-terms, biasing, and with a bit of creative notation also redshift-space distortions. We only demand that the field be expanded in terms of a Gaussian field, an assumption that we will relax further ahead by including Poisson noise. For concretness we will work up to order \(n = 3\), where the first non-trivial structure appears, but our arguments are valid to any fixed order in perturbation theory. We will then prove that the covariance of this estimator is positive semi-definite as long as one keeps all orders in the field expansion. This makes sense since, though truncated, the resulting covariance is the covariance of a given field defined as a polynomial in the Gaussian field \(\delta_0\). We will prove this more explicitly.
+
+One may worry that expanding the covariance in this way keeps some terms that generate infrared divergences. We will show that in a couple of cases of interest one can exclude the divergent terms from the expansion without affecting the positive semi-definiteness of the covariance. We are working on a general argument for this.
+
+* Wick expansion of the field polynomial
+
+In order to facilitate that proof, we want to rewrite this field polynomial in the Gaussian field \(\delta_0\) as a sum of orthogonal Wick polynomials (the general type of expansion into orthogonal polynomials is called "Wiener chaos" expansion). This Wick expansion can be easily obtained by using normal ordering of the fields, which is equivalent to subtracting all possible contractions:
+
+\[
+\delta_0(\mathbf{q}_1) \cdots \delta_0(\mathbf{q}_n) = \sum_{r=0}^{\lfloor n/2 \rfloor} \sum_{\text{all disjoint pairings}} \langle \delta_0(\mathbf{q}_{i_1}) \delta_0(\mathbf{q}_{j_1}) \rangle \cdots \langle \delta_0(\mathbf{q}_{i_r}) \delta_0(\mathbf{q}_{j_r}) \rangle :\delta_0(\mathbf{q}_{k_1}) \cdots \delta_0(\mathbf{q}_{k_{n-2r}}):\,.
+\]
+
+For example
+
+\begin{multline*}
+\delta_0(\mathbf{q}_1) \cdots \delta_0(\mathbf{q}_8) = {:\delta_0(\mathbf{q}_1) \cdots \delta_0(\mathbf{q}_8):} + \sum_{1\,\text{pairing}} \langle \delta_0(\mathbf{q}_{i}) \delta_0(\mathbf{q}_{j}) \rangle\, {:\prod_{k\neq i,j}\delta_0(\mathbf{q}_{k}):} \\
++ \cdots + \sum_{4\,\text{pairings}} \langle \delta_0(\mathbf{q}_{i_1}) \delta_0(\mathbf{q}_{j_1}) \rangle \cdots \langle \delta_0(\mathbf{q}_{i_4}) \delta_0(\mathbf{q}_{j_4}) \rangle\,.
+\end{multline*}
+
+There's a theorem that guarantees that the resulting Wick polynomials
+are orthogonal in the sense that
+
+\[
+\langle :\delta_0(\mathbf{q}_1) \cdots \delta_0(\mathbf{q}_n): :\delta_0(\mathbf{q}'_1) \cdots \delta_0(\mathbf{q}'_m): \rangle = 0 \quad \text{if } n \neq m\,.
+\]
+
+In an Appendix to this note, we check this explicitly for the first few orders and we also give a "proof" of this result.
+
+* Expansion of the estimator in Wick polynomials
+
+As usual, we start by expanding the estimator in perturbation theory
+
+\[\hat{P}(k_a) = \sum_{n=1}^{N} \hat{P}^{(n)}(k_a)\,,\]
+
+where we truncate at \(N\)-th order. This expansion can be reorganized as an expansion in Wick polynomials
+
+\[\hat{P}(k_a) = \sum_{n=1}^{N} \hat{P}^{[n]}(k_a)\,,\]
+
+where
+
+\[\hat{P}^{[n]}(k_a) = \sum_{\mathbf{q}_1 + \ldots + \mathbf{q}_{n} = 0} L_n(\mathbf{q}_1, \ldots, \mathbf{q}_n; k_a) :\delta_0(\mathbf{q}_1) \cdots \delta_0(\mathbf{q}_{n}):\,,\]
+
+is the projection of the estimator onto the \(n\)-th order Wick polynomial. Then, the covariance will be given by
+
+\begin{align*}
+&\text{Cov}(\hat{P}(k_a), \hat{P}(k_b)) = \sum_{n=1}^N \langle \hat{P}^{[n]}(k_a) \hat{P}^{[n]}(k_b) \rangle\\
+&\quad= \sum_{n=1}^N \sum_{\mathbf{q}_1 + \ldots + \mathbf{q}_{n} = 0} \sum_{\mathbf{q}'_1 + \ldots + \mathbf{q}'_{n} = 0} L_n(\mathbf{q}_1, \ldots, \mathbf{q}_{n - 1}; k_a) L_n(\mathbf{q}'_1, \ldots, \mathbf{q}'_{n - 1}; k_b) \\
+&\quad\phantom{= \sum_{n=1}^N \sum_{\mathbf{q}_1 + \ldots + \mathbf{q}_{n} = 0} \sum_{\mathbf{q}'_1 + \ldots + \mathbf{q}'_{n} = 0} } \times \langle :\delta_0(\mathbf{q}_1) \cdots \delta_0(\mathbf{q}_{n}): :\delta_0(\mathbf{q}'_1) \cdots \delta_0(\mathbf{q}'_{n}): \rangle\\
+&\quad= V \sum_{n=1}^N \sum_{\mathbf{q}_1 + \ldots + \mathbf{q}_{n} = 0} n! L_n(\mathbf{q}_1, \ldots, \mathbf{q}_{n}; k_a) L_n(-\mathbf{q}_1, \ldots, -\mathbf{q}_{n}; k_b) P_L(q_1) \cdots P_L(q_n)
+\end{align*}
+
+where we used the orthogonality of the Wick polynomials and the fact that all pairings give the same contribution since everything is symmetric under exchanges of the \(q\)'s. One factor of \(V\) in the last equality comes from a redundant delta function \((2\pi)^3\delta_D(0) = V\).
+
+This is just the sum (over configurations with \(\mathbf{q}_1 + \ldots + \mathbf{q}_{n} = 0\)) of exterior products among vectors in data space (each vector labeled by the \(q\)'s, with indices \(k_a\) and \(k_b\)), so it is guaranteed to be positive semi-definite. Since this is just the covariance of a given field defined as a polynomial in the Gaussian field \(\delta_0\), this is not surprising. However, note that this is different to taking the /covariance/ at a given order, which will now not be guaranteed to be positive semi-definite. We discuss this further after we compute a few projection kernels explicitly.
+
+Note also that once written in this way, we can pick and choose which terms in the orthogonal polynomial expansion to keep. In this way, we can ignore terms that generate infrared divergences without affecting the positive semi-definiteness of the covariance.
+
+** Expansion to second order
+
+At second order we only have the tree-level contribution
+
+\[\hat{P}^{(2)}(k_a) = \frac{1}{V N_a} \sum_{|\mathbf{p}| \in k_a} \delta_0(\mathbf{p}) \delta_0(-\mathbf{p})\,,\]
+
+which can be written as
+
+\[\hat{P}^{(2)}(k_a) = \langle \hat{P}^{(2)}(k_a) \rangle + \frac{1}{V N_a} \sum_{|\mathbf{p}| \in k_a} :\delta_0(\mathbf{p}) \delta_0(-\mathbf{p}):\,.\]
+
+Since it will mix with higher-order terms, we will call these contributions \(\hat{P}^{[0]}_{11}\) and \(\hat{P}^{[2]}_{11}\) in later sections. From here, we can read off the projection kernels
+
+\[L_0(k_a) = P_L(k_a)\,,\quad L_2(\mathbf{q}; k_a) = \frac{1}{V N_a} \Theta_a(\mathbf{q})\,,\]
+
+where \(\Theta_a(\mathbf{q})\) is a top-hat function that is 1 if \(|\mathbf{q}| \in k_a\) and zero otherwise. The covariance at this order is then the standard expression
+
+\[\text{Cov}(\hat{P}(k_a), \hat{P}(k_b)) = \frac{2}{VN_a N_b} \sum_{\mathbf{q}}\Theta_a(\mathbf{q})\Theta_b(-\mathbf{q}) P_L(k_a) P_L(k_b) =\frac{2}{N_a^2} \sum_{\mathbf{q}}\Theta_a(\mathbf{q}) P_L(k_a)^2 \delta_{ab} = \frac{2}{N_a} P_L(k_a)^2 \delta_{ab}\,.\]
+
+** Expansion to third order
+
+At third order we have
+
+\[
+\hat{P}^{(3)}(k_a) = \frac{2}{V N_a} \sum_{|\mathbf{p}| \in k_a} \delta_0(\mathbf{p}) \int_{\mathbf{q}} F_2(\mathbf{q}, -\mathbf{p} - \mathbf{q}) \delta_0(\mathbf{q}) \delta_0(-\mathbf{p} - \mathbf{q})\,.
+\]
+
+This contains only a "third-wick" or "third-chaos" contribution, so \(\hat{P}^{(3)}(k_a) = \hat{P}^{[3]}(k_a)\). (In principle, it would also have a "first-wick" contribution, but this vanishes since \(F_2(\boldsymbol{0}, \boldsymbol{p}) = F_2(\boldsymbol{p}, -\boldsymbol{p}) = 0\) for propperly renormalized quadratic kernels satisfying the consistency relation.) We can read off the projection kernel, which is 
+
+\[L_3(\mathbf{q}_1, \mathbf{q}_2, \mathbf{q}_3; k_a) = \frac{2}{3V N_a} \left(\Theta_a(-\mathbf{q}_1 -\mathbf{q}_2) F_2(\mathbf{q}_1, \mathbf{q}_2) + 2\,\text{perms}\right)\]
+
+This kernel can be symmetrized under the exchange of \(\mathbf{q}_1\), \(\mathbf{q}_2\), and \(-\mathbf{q}_1 - \mathbf{q}_2\) since it multiplies a symmetric product of fields.
+
+The contribution from this order to the covariance is then
+
+\[\begin{aligned}
+&\text{Cov}^{(6)}(\hat{P}(k_a), \hat{P}(k_b)) \supset \frac{8}{V N_a N_b} \sum_{\mathbf{q}_1, \mathbf{q}_2}\Bigg[V\delta_{ab}\Theta_a(\mathbf{q}_1 + \mathbf{q}_2) F_2^2(\mathbf{q}_1, \mathbf{q}_2) P_L(q_1) P_L(q_2) P_L(k_a) \\
+&\qquad + 2\Theta_a(\mathbf{q}_1 + \mathbf{q}_2) \Theta_b(-\mathbf{q}_1)F_2(\mathbf{q}_1, \mathbf{q}_2)F_2(-\mathbf{q}_1 - \mathbf{q}_2, -\mathbf{q}_2) P_L(k_a) P_L(k_b) P_L(\mathbf{q}_2) \Bigg]\,,
+\end{aligned}\]
+
+where in the first line we've used the fact that \(F_2(\mathbf{q}_1, \mathbf{q}_2) = F_2(-\mathbf{q}_1, -\mathbf{q}_2)\). The first line can be identified as a one-loop correction to the power spectrum in the previous sub-section. The second line is a contribution to the connected 4-point function, and it can relate different bins \(a \neq b\), as well as contain supersample contributions when \(a = b\). As expected, this is just a rewriting of well-known results.
+
+We also notice a subtlety. Though the resulting covariance is positive semi-definite, we cannot trust it to sixth order in perturbation theory, since we are missing parts proportional to \(F_3\) which come in \(\langle \hat{P}^{(4)} \hat{P}^{(2)} \rangle\). To complete this sub-leading order correction to the covariance, we need to perform the Wick expansion at fourth order. If we don't include these contributions, the one-loop power spectrum in the first line of the expression above will contain an infrared divergence.
+
+** Expansion to fourth order
+
+At fourth order we have two contributions
+
+\[\hat{P}^{(4)}_{22}(k_a) = \frac{1}{V N_a} \sum_{|\mathbf{p}| \in k_a} \left|\int_{\mathbf{q}} F_2(\mathbf{q}, \mathbf{p} - \mathbf{q}) \delta_0(\mathbf{q}) \delta_0(\mathbf{p} - \mathbf{q})\right|^2\,,\]
+
+\[\hat{P}^{(4)}_{13}(k_a) = \frac{2}{V N_a} \sum_{|\mathbf{p}| \in k_a} \delta_0(\mathbf{p}) \int_{\mathbf{q}_1, \mathbf{q}_2} F_3(\mathbf{q}_1, \mathbf{q}_2, -\mathbf{p} - \mathbf{q}_1 - \mathbf{q}_2) \delta_0(\mathbf{q}_1) \delta_0(\mathbf{q}_2) \delta_0(-\mathbf{p} - \mathbf{q}_1 - \mathbf{q}_2)\,.\]
+
+These pieces separate into zero, second and fourth Wick contributions. The zeroth contribution does not contribute to the covariance (it's just the one-loop correction to the \(P(k_a)P(k_b)\) term that is subtracted). The second Wick contribution is given by
+
+\[\hat{P}^{[2]}_{22}(k_a) = \frac{4}{V N_a} \sum_{|\mathbf{p}| \in k_a} \int_{\mathbf{q}} F_2^2(\mathbf{q}, \mathbf{p} - \mathbf{q}) P_L(q) :\delta_0(\mathbf{p} - \mathbf{q})\delta_0(-\mathbf{p} + \mathbf{q}):\,,\]
+
+\[\hat{P}^{[2]}_{13}(k_a) = \frac{6}{V N_a} \sum_{|\mathbf{p}| \in k_a} \int_{\mathbf{q}} F_3(\mathbf{q}, -\mathbf{q}, -\mathbf{p}) \left(P_L(q) :\delta_0(\mathbf{p})\delta_0(-\mathbf{p}): + P_L(p) :\delta_0(\mathbf{q})\delta_0(-\mathbf{q}):\right) \,.\]
+
+We can then read off the projection kernels
+
+
+* Appendix: orthogonality of Wick polynomials
+
+** Explicit check of the orthogonality of Wick polynomials to fourth order
+
+Since we're poor cosmologists, let's check this explicitly for the first few orders (up to \(n = 4\)). Let's first consider a polynomial of order \(1\) contracted with one of order \(3\). We have
+
+\[:\delta_0(\mathbf{q}_1): = \delta_0(\mathbf{q}_1)\,,\]
+
+and
+
+\begin{align*}
+:\delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_2) \delta_0(\mathbf{q}'_3):  &= \delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_2) \delta_0(\mathbf{q}'_3) - \langle \delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_2) \rangle \delta_0(\mathbf{q}'_3) \\
+& \phantom{=} - \langle \delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_3) \rangle \delta_0(\mathbf{q}'_2) - \langle \delta_0(\mathbf{q}'_2) \delta_0(\mathbf{q}'_3) \rangle \delta_0(\mathbf{q}'_1)\,.
+\end{align*}
+
+So one gets
+
+\begin{align*}
+\langle :\delta_0(\mathbf{q}_1): :\delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_2) \delta_0(\mathbf{q}'_3): \rangle &= \langle \delta_0(\mathbf{q}_1) \delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_2) \delta_0(\mathbf{q}'_3) \rangle - \langle \delta_0(\mathbf{q}_1) \delta_0(\mathbf{q}'_1) \rangle \langle \delta_0(\mathbf{q}'_2) \delta_0(\mathbf{q}'_3) \rangle
+\\ &\phantom{=} - \langle \delta_0(\mathbf{q}_1) \delta_0(\mathbf{q}'_2) \rangle \langle \delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_3) \rangle - \langle \delta_0(\mathbf{q}_1) \delta_0(\mathbf{q}'_3) \rangle \langle \delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_2) \rangle\,.
+\end{align*}
+
+This vanishes after expanding the first 4-point function.
+
+Similarly, for a polynomial of order \(2\) contracted with one of order \(4\) we have
+
+\[:\delta_0(\mathbf{q}_1) \delta_0(\mathbf{q}_2): = \delta_0(\mathbf{q}_1) \delta_0(\mathbf{q}_2) - \langle \delta_0(\mathbf{q}_1) \delta_0(\mathbf{q}_2) \rangle\,,\]
+
+\[\begin{aligned}
+&:\delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_2) \delta_0(\mathbf{q}'_3) \delta_0(\mathbf{q}'_4): = \delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_2) \delta_0(\mathbf{q}'_3) \delta_0(\mathbf{q}'_4) \\
+&\quad - :\delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_2): \langle \delta_0(\mathbf{q}'_3) \delta_0(\mathbf{q}'_4) \rangle - :\delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_3): \langle \delta_0(\mathbf{q}'_2) \delta_0(\mathbf{q}'_4) \rangle - :\delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_4): \langle \delta_0(\mathbf{q}'_2) \delta_0(\mathbf{q}'_3) \rangle \\
+&\quad - :\delta_0(\mathbf{q}'_2) \delta_0(\mathbf{q}'_3): \langle \delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_4) \rangle - :\delta_0(\mathbf{q}'_2) \delta_0(\mathbf{q}'_4): \langle \delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_3) \rangle - :\delta_0(\mathbf{q}'_3) \delta_0(\mathbf{q}'_4): \langle \delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_2) \rangle \\
+&\quad - \langle \delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_2) \rangle \langle \delta_0(\mathbf{q}'_3) \delta_0(\mathbf{q}'_4) \rangle - \langle \delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_3) \rangle \langle \delta_0(\mathbf{q}'_2) \delta_0(\mathbf{q}'_4) \rangle - \langle \delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_4) \rangle \langle \delta_0(\mathbf{q}'_2) \delta_0(\mathbf{q}'_3) \rangle\,.
+\end{aligned}\]
+
+In order to do our check we first need
+
+\[\begin{aligned}
+\langle :\delta_0(\mathbf{q}_1) \delta_0(\mathbf{q}_2): :\delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_2):\rangle &= \langle \delta_0(\mathbf{q}_1) \delta_0(\mathbf{q}_2) \delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_2) \rangle - \langle \delta_0(\mathbf{q}_1) \delta_0(\mathbf{q}_2) \rangle \langle \delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_2) \rangle\\
+&= \langle \delta_0(\mathbf{q}_1) \delta_0(\mathbf{q}'_1) \rangle \langle \delta_0(\mathbf{q}_2) \delta_0(\mathbf{q}'_2) \rangle + \langle \delta_0(\mathbf{q}_1) \delta_0(\mathbf{q}'_2) \rangle \langle \delta_0(\mathbf{q}_2) \delta_0(\mathbf{q}'_1) \rangle\,.
+\end{aligned}\]
+
+So we get
+
+\begin{align*}
+&\langle :\delta_0(\mathbf{q}_1) \delta_0(\mathbf{q}_2): :\delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_2) \delta_0(\mathbf{q}'_3) \delta_0(\mathbf{q}'_4): \rangle = \langle \delta_0(\mathbf{q}_1) \delta_0(\mathbf{q}_2) \delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_2) \delta_0(\mathbf{q}'_3) \delta_0(\mathbf{q}'_4)\rangle \\
+&\quad - \langle \delta_0(\mathbf{q}_1) \delta_0(\mathbf{q}_2) \rangle \langle \delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_2) \delta_0(\mathbf{q}'_3) \delta_0(\mathbf{q}'_4) \rangle - \langle\delta_0(\mathbf{q}_1) \delta_0(\mathbf{q}'_1)\rangle \langle \delta_0(\mathbf{q}_2) \delta_0(\mathbf{q}'_2) \rangle \langle \delta_0(\mathbf{q}'_3) \delta_0(\mathbf{q}'_4) \rangle \\
+&\quad - \langle\delta_0(\mathbf{q}_2) \delta_0(\mathbf{q}'_1)\rangle \langle \delta_0(\mathbf{q}_1) \delta_0(\mathbf{q}'_2) \rangle \langle \delta_0(\mathbf{q}'_3) \delta_0(\mathbf{q}'_4) \rangle - \langle\delta_0(\mathbf{q}_1) \delta_0(\mathbf{q}'_1)\rangle \langle \delta_0(\mathrm{q}_2) \delta_0(\mathbf{q}'_3)\rangle \langle \delta_0(\mathbf{q}'_2) \delta_0(\mathbf{q}'_4) \rangle \\
+&\quad - \langle\delta_0(\mathbf{q}_2) \delta_0(\mathbf{q}'_1)\rangle\langle\delta_0(\mathbf{q}_1) \delta_0(\mathbf{q}'_3)\rangle \langle \delta_0(\mathbf{q}'_2) \delta_0(\mathbf{q}'_4) \rangle - \langle\delta_0(\mathbf{q}_1)\delta_0(\mathbf{q}'_1)\rangle \langle \delta_0(\mathbf{q}_2) \delta_0(\mathbf{q}'_4)\rangle \langle \delta_0(\mathbf{q}'_2) \delta_0(\mathbf{q}'_3) \rangle \\
+&\quad - \langle\delta_0(\mathbf{q}_2) \delta_0(\mathbf{q}'_1) \rangle \langle \delta_0(\mathbf{q}_1) \delta_0(\mathbf{q}'_4) \rangle \langle \delta_0(\mathbf{q}'_2) \delta_0(\mathbf{q}'_3) \rangle - \langle \delta_0(\mathbf{q}_1) \delta_0(\mathbf{q}'_2) \rangle \langle \delta_0(\mathbf{q}_2) \delta_0(\mathbf{q}'_3)\rangle \langle \delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_4) \rangle \\
+&\quad - \langle \delta_0(\mathbf{q}_2) \delta_0(\mathbf{q}'_2) \rangle \langle \delta_0(\mathbf{q}_1) \delta_0(\mathbf{q}'_3)\rangle \langle \delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_4) \rangle - \langle \delta_0(\mathbf{q}_1) \delta_0(\mathbf{q}'_2) \rangle \langle \delta_0(\mathbf{q}_2) \delta_0(\mathbf{q}'_4)\rangle \langle \delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_3) \rangle \\
+&\quad - \langle \delta_0(\mathbf{q}_2) \delta_0(\mathbf{q}'_2) \rangle \langle \delta_0(\mathbf{q}_1) \delta_0(\mathbf{q}'_4)\rangle \langle \delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_3) \rangle - \langle \delta_0(\mathbf{q}_1) \delta_0(\mathbf{q}'_3) \rangle \langle \delta_0(\mathbf{q}_2) \delta_0(\mathbf{q}'_4)\rangle \langle \delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_2) \rangle \\
+&\quad - \langle \delta_0(\mathbf{q}_2) \delta_0(\mathbf{q}'_3) \rangle \langle \delta_0(\mathbf{q}_1) \delta_0(\mathbf{q}'_4)\rangle \langle \delta_0(\mathbf{q}'_1) \delta_0(\mathbf{q}'_2) \rangle
+\end{align*}
+
+and this is indeed zero. So the theorem, unsurprisingly, works.
+
+** "Proof" of the orthogonality of Wick polynomials
+
+Consider first a single random variable with zero mean and unit variance \(X \sim \mathcal{N}(0, 1)\). Define the probabilist's Hermite polynomials as
+
+\[H_n(X) = (-1)^n e^{X^2/2} \frac{d^n}{dX^n} e^{-X^2/2}\,,\]
+
+with generating function
+
+\[e^{tX - t^2/2} = \sum_{n=0}^\infty H_n(X) \frac{t^n}{n!}\,.\]
+
+The Wick polynomials of \(X\) are the Hermite polynomials, which can be easily checked by noting that the Wick polynomials are defined by subtracting all possible contractions, which is exactly what the Hermite polynomials do. We will prove the standard result that the Hermite polynomials of a random variable are orthogonal with respect to the
+probability measure of that variable.
+
+Consider
+
+\[\left\langle e^{tX - t^2/2} e^{sX - s^2/2} \right\rangle = e^{-(t^2 + s^2)/2} \left\langle e^{(t+s)X} \right\rangle = e^{ts}\,,\]
+
+where we used the fact that \(\langle e^{tX} \rangle = e^{t^2/2}\) for a Gaussian variable. Expanding both sides in powers of \(t\) and \(s\) we get
+
+\[\sum_{n, m=0}^\infty \left\langle H_n(X) H_m(X) \right\rangle \frac{t^n}{n!} \frac{s^m}{m!} = \sum_{n=0}^\infty \frac{(ts)^n}{n!}\,.\]
+
+Since the right-hand side only has terms with \(t^n s^n\), we conclude that \(\langle H_n(X) H_m(X) \rangle = 0\) if \(n \neq m\).
+
+Now consider a Gaussian field \(\delta\) with \(\langle \delta(x_1) \delta(x_2) \rangle = \xi(x_1 - x_2)\). Define the Wick exponential as
+
+\[:e^{\int d^3 x\, J(x) \delta(x)}: = e^{-\frac{1}{2} \int d^3 x_1 d^3 x_2\, J(x_1) J(x_2) \xi(x_1 - x_2) + \int d^3 x\, J(x) \delta(x)}\,,\]
+
+and note that
+
+\[:\delta(x_1) \cdots \delta(x_n): = \left. \frac{\delta^n}{\delta J(x_1) \cdots \delta J(x_n)} :e^{\int d^3 x\, J(x) \delta(x)}: \right|_{J=0}\,,\]
+
+which we can also write as
+
+\[:e^{\int d^3 x\, J(x) \delta(x)}: = \sum_{n=0}^\infty \frac{1}{n!} \int d^3 x_1 \cdots d^3 x_n\, J(x_1) \cdots J(x_n) :\delta(x_1) \cdots \delta(x_n):\,.\]
+
+This is analogous to the single variable Hermite polynomial case. Then
+we can write
+
+\[\left\langle :e^{\int d^3 x\, J_1(x) \delta(x)}: :e^{\int d^3 x\, J_2(x) \delta(x)}: \right\rangle = e^{-\frac{1}{2}\int d^3 x_1 d^3 x_2\, (J_1(x_1) J_1(x_2) +  J_2(x_1) J_2(x_2)) \xi(x_1 - x_2)}\left\langle e^{\int d^3 x\, (J_1(x) + J_2(x)) \delta(x)} \right\rangle\,,\]
+
+and since \(\delta\) is Gaussian we have
+
+\[\langle e^{\int d^3 x\, J(x) \delta(x)} \rangle = e^{\frac{1}{2} \int d^3 x_1 d^3 x_2\, J(x_1) J(x_2) \xi(x_1 - x_2)}\,,\]
+
+so we get
+
+\[\left\langle :e^{\int d^3 x\, J_1(x) \delta(x)}: :e^{\int d^3 x\, J_2(x) \delta(x)}: \right\rangle = e^{\int d^3 x d^3 y\, J_1(x)J_2(y) \xi(x - y)}\,.\]
+
+Now we proceed as before and expand both sides in powers of \(J_1\) and \(J_2\) to get
+
+\[\begin{aligned}
+&\sum_{n, m=0}^\infty \frac{1}{n! m!} \int d^3 x_1 \cdots d^3 x_n d^3 y_1 \cdots d^3 y_m\, J_1(x_1) \cdots J_1(x_n) J_2(y_1) \cdots J_2(y_m) \langle :\delta(x_1) \cdots \delta(x_n): :\delta(y_1) \cdots \delta(y_m): \rangle \\
+&= \sum_{n=0}^\infty \frac{1}{n!} \int d^3 x_1 \cdots d^3 x_n d^3 y_1 \cdots d^3 y_n\,  J_1(x_1) \cdots J_1(x_n) J_2(y_1) \cdots J_2(y_n) \xi(x_1 - y_1)\cdots\xi(x_n - y_n)\,.
+\end{aligned}\]
+
+From here we conclude that \(\langle :\delta(x_1) \cdots \delta(x_n): :\delta(y_1) \cdots \delta(y_m): \rangle = 0\) if \(n \neq m\). Moreover, we conclude also that
+
+\[\langle :\delta(x_1) \cdots \delta(x_n): :\delta(y_1) \cdots \delta(y_n): \rangle = \sum_{\text{all pairings}} \xi(x_{i_1} - y_{j_1}) \cdots \xi(x_{i_n} - y_{j_n})\,.\]
