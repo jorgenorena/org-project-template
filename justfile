@@ -1,5 +1,6 @@
 output := `python -c 'import yaml; print(yaml.safe_load(open("site.yml"))["site"]["output"])'`
 fragments := `python -c 'import yaml; print(yaml.safe_load(open("site.yml"))["fragments"]["root"])'`
+latex_output := `python -c 'import yaml; print(yaml.safe_load(open("site.yml"))["latex"]["root"])'`
 
 default:
     just --list
@@ -12,10 +13,13 @@ build:
 
 quick: fragments build
 
-serve:
-    python -m http.server 8000 --directory {{ output }}
+latex:
+    emacsclient --eval '(progn (load-file "{{justfile_directory()}}/export-fragments.el") (my/site-export-all-latex))'
 
-site: quick serve
+serve port="8000":
+    python -m http.server {{ port }} --directory {{ output }}
+
+site port="8000": quick (serve port)
 
 clean:
-    rm -rf {{ fragments }} {{ output }} __pycache__
+    rm -rf {{ fragments }} {{ latex_output }} {{ output }} __pycache__

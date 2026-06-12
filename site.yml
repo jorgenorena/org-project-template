@@ -1,5 +1,5 @@
 site:
-  title: Advanced Cosmology
+  title: Asymptotic Symmetries of Inflation
   output: public
   static: static
 
@@ -9,6 +9,10 @@ notes:
 
 fragments:
   root: build
+
+latex:
+  root: build/latex
+  header: site/latex/header.tex
 
 templates:
   page: site/templates/page.html
@@ -21,6 +25,8 @@ assets:
     to: results
   - from: notes/figures
     to: figures
+  - from: algebra
+    to: algebra
 
 index:
   title: Notes

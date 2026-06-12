@@ -49,6 +49,10 @@ notes:
 fragments:
   root: build
 
+latex:
+  root: build/latex
+  header: site/latex/header.tex
+
 templates:
   page: site/templates/page.html
   index: site/templates/index.html
@@ -74,6 +78,8 @@ Important fields:
 - `notes.root`: Org source directory.
 - `notes.public_prefix`: optional subdirectory for generated note pages inside `site.output`.
 - `fragments.root`: directory where `export-fragments.el` writes body-only HTML fragments.
+- `latex.root`: directory where `export-fragments.el` writes full LaTeX documents.
+- `latex.header`: shared LaTeX preamble content injected into every exported document.
 - `templates.page`: template for note pages.
 - `templates.index`: template for the index page.
 - `assets`: directories copied into the output site.
@@ -138,16 +144,24 @@ Export and build:
 just quick
 ```
 
-Export, build, and serve locally:
+Export full LaTeX documents:
+
+```sh
+just latex
+```
+
+Export, build, and serve locally, optionally on a custom port:
 
 ```sh
 just site
+just site 9000
 ```
 
-Serve the already-built site:
+Serve the already-built site, optionally on a custom port:
 
 ```sh
 just serve
+just serve 9000
 ```
 
 Remove generated output:
@@ -156,11 +170,11 @@ Remove generated output:
 just clean
 ```
 
-`just serve` and `just clean` read the output and fragment directories from `site.yml`.
+`just serve` and `just clean` read their output directories from `site.yml`.
 
 ## Emacs Exporter
 
-`export-fragments.el` uses Org's HTML exporter with body-only output. It disables code execution during export:
+`export-fragments.el` uses Org's HTML exporter for body-only site fragments and the LaTeX exporter for full documents. LaTeX exports include transclusions and remove blank lines immediately surrounding display equations without modifying the Org sources. The exporter disables code execution during export:
 
 ```elisp
 (setq org-export-use-babel nil)
@@ -172,7 +186,7 @@ The usual command uses a running Emacs server:
 emacsclient --eval '(progn (load-file "/path/to/export-fragments.el") (my/site-export-all-fragments))'
 ```
 
-The `just fragments` recipe runs this form for the current project.
+The `just fragments` recipe runs this form for the current project. `just latex` calls `my/site-export-all-latex` and writes mirrored `.tex` files under `latex.root`.
 
 If no Emacs server is available, use the batch fallback:
 
