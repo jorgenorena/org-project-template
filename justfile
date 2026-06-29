@@ -17,9 +17,13 @@ latex:
     emacsclient --eval '(progn (load-file "{{justfile_directory()}}/export-fragments.el") (my/site-export-all-latex))'
 
 serve port="8000":
+    python serve_site.py {{ port }}
+
+serve-static port="8000":
     python -m http.server {{ port }} --directory {{ output }}
 
-site port="8000": quick (serve port)
+site port="8000": quick
+    python serve_site.py {{ port }}
 
 clean:
     rm -rf {{ fragments }} {{ latex_output }} {{ output }} __pycache__

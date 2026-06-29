@@ -615,21 +615,21 @@ figcaption,
   padding: 0;
 }
 
-.notes-nav ol {
+.notes-nav > ol {
   margin: 0;
   padding: 0;
   list-style: none;
   counter-reset: notes;
 }
 
-.notes-nav li {
+.notes-nav > ol > li {
   counter-increment: notes;
   position: relative;
   margin: 0.15rem 0;
   padding: 0 0 0 0.95rem;
 }
 
-.notes-nav li::before {
+.notes-nav > ol > li::before {
   content: "";
   position: absolute;
   left: 0;
@@ -639,11 +639,11 @@ figcaption,
   background: transparent;
 }
 
-.notes-nav li.active::before {
+.notes-nav > ol > li.active::before {
   background: var(--accent-green);
 }
 
-.notes-nav a {
+.notes-nav > ol > li > a {
   display: flex;
   align-items: baseline;
   gap: 0.55rem;
@@ -652,7 +652,7 @@ figcaption,
   padding: 0.28rem 0;
 }
 
-.notes-nav a::before {
+.notes-nav > ol > li > a::before {
   content: counter(notes) ".";
   flex: 0 0 1.9rem;
   text-align: right;
@@ -660,12 +660,47 @@ figcaption,
   font-variant-numeric: tabular-nums;
 }
 
-.notes-nav li.active a::before {
+.notes-nav > ol > li.active > a::before {
   color: var(--accent-green);
 }
 
 .notes-nav a:hover,
 .notes-nav a:focus {
+  color: var(--link-hover);
+  text-decoration: underline;
+}
+
+.note-sections {
+  margin: 0.1rem 0 0.65rem 2.45rem;
+  padding: 0;
+  list-style: none;
+}
+
+.note-sections li,
+.note-sections li + li {
+  margin: 0;
+  padding: 0;
+}
+
+.note-sections .section-level-3 {
+  padding-left: 0.8rem;
+}
+
+.note-sections .section-level-4 {
+  padding-left: 1.6rem;
+}
+
+.notes-nav .note-sections a {
+  display: block;
+  color: var(--fg-muted);
+  text-decoration: none;
+  font-size: 0.88rem;
+  line-height: 1.35;
+  padding: 0.16rem 0;
+}
+
+.notes-nav .note-sections a:hover,
+.notes-nav .note-sections a:focus {
   color: var(--link-hover);
   text-decoration: underline;
 }

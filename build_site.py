@@ -17,6 +17,12 @@ CONFIG_PATH = ROOT / "site.yml"
 META_RE = re.compile(r"^#\+([A-Z0-9_]+):\s*(.*?)\s*$", re.IGNORECASE)
 LINK_RE = re.compile(r"""(?:href|src)=["']([^"'#]+(?:#[^"']*)?)["']""")
 PLACEHOLDER_RE = re.compile(r"\{\{\s*([a-z_][a-z0-9_]*)\s*\}\}")
+HEADING_RE = re.compile(
+    r"""<h([2-4])\b[^>]*\bid=["']([^"']+)["'][^>]*>(.*?)</h\1>""",
+    re.IGNORECASE | re.DOTALL,
+)
+TAG_RE = re.compile(r"<[^>]+>")
+WHITESPACE_RE = re.compile(r"\s+")
 
 REQUIRED_META = ("TITLE",)
 
@@ -53,6 +59,13 @@ class NoteMeta:
     @property
     def html_path(self) -> Path:
         return self.relative_path.with_suffix(".html")
+
+
+@dataclass(frozen=True)
+class NoteSection:
+    level: int
+    anchor: str
+    title: str
 
 
 def path_from_config(value: object, key: str) -> Path:
@@ -240,19 +253,58 @@ def note_card(config: SiteConfig, note: NoteMeta) -> str:
 </article>"""
 
 
+def clean_heading_text(value: str) -> str:
+    text = TAG_RE.sub("", value)
+    text = html.unescape(text)
+    return WHITESPACE_RE.sub(" ", text).strip()
+
+
+def extract_note_sections(body: str) -> list[NoteSection]:
+    sections: list[NoteSection] = []
+
+    for match in HEADING_RE.finditer(body):
+        level = int(match.group(1))
+        anchor = html.unescape(match.group(2))
+        title = clean_heading_text(match.group(3))
+
+        if title:
+            sections.append(NoteSection(level=level, anchor=anchor, title=title))
+
+    return sections
+
+
+def build_section_nav(sections: list[NoteSection]) -> str:
+    if not sections:
+        return ""
+
+    items: list[str] = []
+    for section in sections:
+        title = html.escape(section.title)
+        anchor = html.escape(section.anchor, quote=True)
+        items.append(
+            f'      <li class="section-level-{section.level}">'
+            f'<a href="#{anchor}">{title}</a></li>'
+        )
+
+    return '\n      <ol class="note-sections">\n' + "\n".join(items) + "\n      </ol>\n    "
+
+
 def build_nav(
     config: SiteConfig,
     notes: list[NoteMeta],
     current_file: Path,
     current_slug: str | None = None,
+    current_sections: list[NoteSection] | None = None,
 ) -> str:
     items: list[str] = []
+    current_sections = current_sections or []
 
     for note in notes:
         active = ' class="active"' if note.slug == current_slug else ""
         href = html.escape(relative_href(current_file, note_public_path(config, note)))
         title = html.escape(note.title)
-        items.append(f'    <li{active}><a href="{href}">{title}</a></li>')
+        sections = build_section_nav(current_sections) if note.slug == current_slug else ""
+        items.append(f'    <li{active}><a href="{href}">{title}</a>{sections}</li>')
 
     return '<nav class="notes-nav">\n  <ol>\n' + "\n".join(items) + "\n  </ol>\n</nav>"
 
@@ -267,6 +319,7 @@ def build_single_note(
     ensure_exists(fragment_path, f"HTML fragment for {note.slug}")
 
     body = read_text(fragment_path)
+    sections = extract_note_sections(body)
     output_path = note_public_path(config, note)
 
     page_html = render_template(
@@ -279,7 +332,13 @@ def build_single_note(
                 relative_href(output_path, config.public_dir / config.static_public_path)
             ),
             "home": html.escape(relative_href(output_path, config.public_dir / "index.html")),
-            "nav": build_nav(config, notes, output_path, current_slug=note.slug),
+            "nav": build_nav(
+                config,
+                notes,
+                output_path,
+                current_slug=note.slug,
+                current_sections=sections,
+            ),
             "body": body,
         },
     )

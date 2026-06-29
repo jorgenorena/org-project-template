@@ -29,7 +29,7 @@ notes/project/bar.org
 - `export-fragments.el` is the Emacs/Org exporter. It reads `notes.root` and `fragments.root` from `site.yml`.
 - `build_site.py` is the static-site builder. It reads `site.yml`, loads note metadata from Org headers, wraps fragments with templates, copies assets, and checks links.
 - `site/templates/` contains plain HTML templates with `{{ placeholder }}` replacement.
-- `site/static/` contains CSS and JavaScript copied into the output site.
+- `site/static/` contains CSS, JavaScript, and vendored browser assets copied into the output site.
 - `justfile` provides the normal commands for exporting, building, serving, and cleaning.
 
 ## Configuration
@@ -82,7 +82,7 @@ Important fields:
 - `latex.header`: shared LaTeX preamble content injected into every exported document.
 - `templates.page`: template for note pages.
 - `templates.index`: template for the index page.
-- `assets`: directories copied into the output site.
+- `assets`: directories copied into the output site. The `site/static` mapping carries local fonts and MathJax under `static/vendor/`.
 - `index.title` and `index.description`: metadata and visible title for `index.html`.
 
 `site.static` should match the `to` path for the `site/static` asset mapping unless you also change the templates.
@@ -164,6 +164,12 @@ just serve
 just serve 9000
 ```
 
+The development server keeps running while you regenerate the site. Press `Ctrl+R` in the server terminal to run `just quick`; press `Ctrl+C` to stop serving. If you need the plain Python server without hotkeys, use:
+
+```sh
+just serve-static
+```
+
 Remove generated output:
 
 ```sh
@@ -216,5 +222,9 @@ It performs these steps:
 5. Renders note pages and `index.html`.
 6. Copies configured assets.
 7. Validates local `href` and `src` links in generated HTML.
+
+Note pages also add the current note section headings to the sidebar navigation by reading heading IDs from the exported fragment. The builder still leaves the Org-generated body HTML unchanged.
+
+Fonts and MathJax are vendored under `site/static/vendor/`, so generated pages do not depend on Google Fonts, jsdelivr, or any other network resource at load time.
 
 The builder deliberately does not parse or rewrite Org-generated body HTML.
