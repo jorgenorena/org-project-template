@@ -14,7 +14,7 @@ import yaml
 ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = ROOT / "site.yml"
 
-META_RE = re.compile(r"^#\+([A-Z0-9_]+):\s*(.*?)\s*$", re.IGNORECASE)
+META_RE = re.compile(r"^[#%]\+([A-Z0-9_]+):\s*(.*?)\s*$", re.IGNORECASE)
 LINK_RE = re.compile(r"""(?:href|src)=["']([^"'#]+(?:#[^"']*)?)["']""")
 PLACEHOLDER_RE = re.compile(r"\{\{\s*([a-z_][a-z0-9_]*)\s*\}\}")
 HEADING_RE = re.compile(
@@ -175,27 +175,26 @@ def copy_tree_if_exists(src: Path, dst: Path) -> None:
     shutil.copytree(src, dst)
 
 
-def parse_org_metadata(path: Path) -> dict[str, str]:
+def parse_note_metadata(path: Path) -> dict[str, str]:
     """
-    Read metadata from the initial header block of an Org file.
+    Read metadata from the initial header block of a note.
 
-    We keep this deliberately simple: scan from the top, allow blank lines,
-    stop once real content begins.
+    Works for both Org (``#+KEY: value``) and LaTeX (``%+KEY: value``)
+    sources. We keep this deliberately simple: scan from the top, allow
+    blank lines, stop once real content begins. For LaTeX notes this means
+    the ``%+`` metadata comments must come before ``\\documentclass``.
     """
     meta: dict[str, str] = {}
 
     with path.open("r", encoding="utf-8") as f:
         for line in f:
-            stripped = line.strip()
-
-            if not stripped:
+            if not line.strip():
                 continue
 
-            if stripped.startswith("#+"):
-                m = META_RE.match(line)
-                if m:
-                    key, value = m.groups()
-                    meta[key.upper()] = value.strip()
+            m = META_RE.match(line)
+            if m:
+                key, value = m.groups()
+                meta[key.upper()] = value.strip()
                 continue
 
             # First real content line: stop scanning metadata.
@@ -205,7 +204,7 @@ def parse_org_metadata(path: Path) -> dict[str, str]:
 
 
 def load_note_meta(path: Path, notes_dir: Path) -> NoteMeta:
-    meta = parse_org_metadata(path)
+    meta = parse_note_metadata(path)
 
     missing = [key for key in REQUIRED_META if not meta.get(key)]
     if missing:
@@ -346,6 +345,25 @@ def build_single_note(
     write_text(output_path, page_html)
 
 
+def check_slug_clashes(notes: list[NoteMeta]) -> None:
+    """
+    Fail if two source notes build to the same output slug.
+
+    An ``.org`` and a ``.tex`` note with the same name (e.g. ``foo.org`` and
+    ``foo.tex``) would both target ``foo.html`` and collide in the nav.
+    """
+    seen: dict[str, Path] = {}
+
+    for note in notes:
+        existing = seen.get(note.slug)
+        if existing is not None:
+            fail(
+                f"note slug clash: {existing} and {note.source_path} both build "
+                f"to '{note.slug}.html'. Rename one of them."
+            )
+        seen[note.slug] = note.source_path
+
+
 def build_index(config: SiteConfig, notes: list[NoteMeta], index_template: str) -> None:
     content = "\n\n".join(note_card(config, note) for note in notes)
     output_path = config.public_dir / "index.html"
@@ -436,13 +454,17 @@ def main() -> None:
 
     clean_dir(config.public_dir)
 
-    notes = sorted(
-        (load_note_meta(path, config.notes_dir) for path in config.notes_dir.rglob("*.org")),
-        key=lambda n: n.slug,
-    )
+    source_paths = [
+        *config.notes_dir.rglob("*.org"),
+        *config.notes_dir.rglob("*.tex"),
+    ]
+    notes = [load_note_meta(path, config.notes_dir) for path in source_paths]
 
     if not notes:
-        fail(f"no .org notes found in {config.notes_dir}")
+        fail(f"no .org or .tex notes found in {config.notes_dir}")
+
+    check_slug_clashes(notes)
+    notes.sort(key=lambda n: n.slug)
 
     page_template = read_text(config.page_template)
     index_template = read_text(config.index_template)

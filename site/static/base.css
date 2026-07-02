@@ -518,6 +518,100 @@ pre code .org-operator {
 }
 
 /* =========================
+   Pandoc / skylighting colors
+   ========================= */
+
+/* LaTeX notes are converted by pandoc, which highlights code with short
+   "skylighting" token classes instead of htmlize's org-* classes. Alias
+   those onto the same syntax variables so Org and LaTeX code blocks match. */
+
+pre.sourceCode .kw, /* keyword */
+pre.sourceCode .cf, /* control flow */
+pre.sourceCode .im, /* import */
+pre.sourceCode .pp {
+  /* preprocessor */
+  color: var(--syntax-keyword) !important;
+}
+
+pre.sourceCode .st, /* string */
+pre.sourceCode .ch, /* character */
+pre.sourceCode .vs, /* verbatim string */
+pre.sourceCode .ss {
+  /* special string */
+  color: var(--syntax-string) !important;
+}
+
+pre.sourceCode .co, /* comment */
+pre.sourceCode .do, /* documentation */
+pre.sourceCode .an, /* annotation */
+pre.sourceCode .cv {
+  /* comment variable */
+  color: var(--syntax-comment) !important;
+  font-style: italic;
+}
+
+pre.sourceCode .bu {
+  color: var(--syntax-builtin) !important;
+}
+
+pre.sourceCode .fu {
+  color: var(--syntax-function) !important;
+}
+
+pre.sourceCode .va, /* variable */
+pre.sourceCode .at {
+  /* attribute */
+  color: var(--syntax-variable) !important;
+}
+
+pre.sourceCode .dt {
+  color: var(--syntax-type) !important;
+}
+
+pre.sourceCode .dv, /* decimal */
+pre.sourceCode .bn, /* base-n */
+pre.sourceCode .fl, /* float */
+pre.sourceCode .cn, /* constant */
+pre.sourceCode .sc {
+  /* special char */
+  color: var(--syntax-constant) !important;
+}
+
+pre.sourceCode .op {
+  color: var(--fg-muted) !important;
+}
+
+pre.sourceCode .wa, /* warning */
+pre.sourceCode .er {
+  /* error */
+  color: var(--syntax-warning) !important;
+}
+
+/* pandoc line-number anchors: keep them invisible, not dark-red links. */
+pre.sourceCode a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Language label, echoing org's pre.src-*::before. */
+div.sourceCode[data-language]::before {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: var(--fg-muted);
+  font-size: 0.8rem;
+  font-family: var(--font-mono);
+  text-align: right;
+  content: attr(data-language);
+}
+
+/* Inline code from LaTeX notes (\texttt, \verb) uses the mono font. */
+:not(pre) > code {
+  font-family: var(--font-mono);
+  font-size: 0.95em;
+  background: transparent;
+}
+
+/* =========================
    Tables
    ========================= */
 

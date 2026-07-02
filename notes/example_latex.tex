@@ -1,0 +1,60 @@
+%+TITLE: Example note written in LaTeX
+%+DESCRIPTION: Authoring a site note directly in LaTeX instead of Org
+%
+% Build the website:   `just tex-fragments` (pandoc handles this file), then
+%                       `just build`. `just quick` does org + tex + build.
+% Build a PDF:          compile from this directory so \input resolves:
+%                         cd notes && pdflatex example_latex.tex
+%
+% Metadata lives in the %+KEY comments above and must come before
+% \documentclass. Everything below is ordinary LaTeX.
+\documentclass{article}
+
+\usepackage{listings}
+
+% Shared, reusable pieces (see AGENT.md "Writing notes in LaTeX"):
+%   macros.tex  -- \newcommand macros, expanded by pandoc for the web.
+%   header.tex  -- packages (mathtools, tcolorbox) and the `info` box.
+\input{../site/latex/macros}
+\input{../site/latex/header}
+
+\begin{document}
+
+\section{Overview}
+
+This note is written directly in LaTeX. It is converted to a body-only HTML
+fragment by pandoc and then wrapped into a page by \texttt{build\_site.py},
+exactly like the Org notes. Math is left untouched for MathJax:
+%
+\[ \hat{P}(k) = \frac{1}{V N_k} \sum_{|\vv{p}| \in k} \delta(\vv{p}) \delta(-\vv{p}) \,. \]
+
+Inline math and shared macros work too: the linear power spectrum
+\(\PL(k)\) and the measure \(\dd^3 q\) both come from
+\texttt{site/latex/macros.tex} and are expanded before MathJax sees them.
+
+\begin{info}
+Info boxes map to \verb|<div class="info">|, the same element the Org
+special block produces, so they pick up the site's admonition styling.
+\end{info}
+
+\section{Displayed equations}
+
+\begin{align}
+  \avg{\delta(\vv{q}) \delta(\vv{q}')} &= (2\pi)^3 \delta_D(\vv{q} + \vv{q}') \, \PL(q) \,, \\
+  \avg{\hat{P}(k)} &= \PL(k) + \text{(loop corrections)} \,.
+\end{align}
+
+\section{Code}
+
+Code blocks are highlighted by pandoc and aliased onto the same palette as
+the Org notes:
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+
+def estimator(delta, n_modes):
+    # power spectrum estimator P-hat(k)
+    return np.abs(delta) ** 2 / n_modes
+\end{lstlisting}
+
+\end{document}

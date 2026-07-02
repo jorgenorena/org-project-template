@@ -8,13 +8,17 @@ default:
 fragments:
     emacsclient --eval '(progn (load-file "{{justfile_directory()}}/export-fragments.el") (my/site-export-all-fragments))'
 
+tex-fragments:
+    python export_tex.py fragments
+
 build:
     python build_site.py
 
-quick: fragments build
+quick: fragments tex-fragments build
 
 latex:
     emacsclient --eval '(progn (load-file "{{justfile_directory()}}/export-fragments.el") (my/site-export-all-latex))'
+    python export_tex.py latex
 
 serve port="8000":
     python serve_site.py {{ port }}

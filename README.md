@@ -1,33 +1,37 @@
 # Advanced Cosmology Notes Site
 
-This project builds a static website from Org-mode notes.
+This project builds a static website from Org-mode notes. Individual notes can also be written directly in LaTeX.
 
 The build has two stages:
 
-1. `export-fragments.el` exports each `.org` note to a body-only HTML fragment.
+1. Each note is exported to a body-only HTML fragment. `export-fragments.el` handles `.org` notes; `export_tex.py` (pandoc) handles `.tex` notes.
 2. `build_site.py` wraps those fragments with HTML templates, builds the index and navigation, copies assets, and validates local links.
 
-The intended data flow is:
+The intended data flow is the same for both formats:
 
 ```text
-notes/foo.org
-  -> build/foo.html
-  -> public/foo.html
+notes/foo.org             notes/bar.tex
+  -> build/foo.html         -> build/bar.html
+  -> public/foo.html        -> public/bar.html
 ```
 
 Nested notes keep the same relative path:
 
 ```text
-notes/project/bar.org
-  -> build/project/bar.html
-  -> public/project/bar.html
+notes/project/baz.org
+  -> build/project/baz.html
+  -> public/project/baz.html
 ```
+
+Everything after the fragment stage is format-agnostic, so Org and LaTeX notes share the same index, navigation, theme, MathJax, and link validation.
 
 ## Files
 
 - `site.yml` defines the site architecture: source paths, fragment paths, output paths, templates, copied assets, and index metadata.
 - `export-fragments.el` is the Emacs/Org exporter. It reads `notes.root` and `fragments.root` from `site.yml`.
-- `build_site.py` is the static-site builder. It reads `site.yml`, loads note metadata from Org headers, wraps fragments with templates, copies assets, and checks links.
+- `export_tex.py` is the LaTeX exporter. It runs pandoc to convert `.tex` notes into the same body-only fragments, and can also copy `.tex` sources into `latex.root`.
+- `build_site.py` is the static-site builder. It reads `site.yml`, loads note metadata from Org and LaTeX headers, wraps fragments with templates, copies assets, and checks links.
+- `site/latex/` holds shared LaTeX pieces: `header.tex` (preamble injected into Org's LaTeX export) and `macros.tex` (macros shared by LaTeX notes and their PDFs).
 - `site/templates/` contains plain HTML templates with `{{ placeholder }}` replacement.
 - `site/static/` contains CSS, JavaScript, and vendored browser assets copied into the output site.
 - `justfile` provides the normal commands for exporting, building, serving, and cleaning.
@@ -118,6 +122,60 @@ assets:
 
 for top-level notes.
 
+## LaTeX Notes
+
+A note can be written directly in LaTeX instead of Org. Put a `.tex` file under `notes/` and it is picked up automatically. `notes/example_latex.tex` is a worked example.
+
+`export_tex.py` converts each `.tex` note with pandoc into the same kind of body-only fragment the Org exporter produces, so LaTeX notes get the same index card, sidebar navigation, theme, and link checking. Conversion:
+
+- leaves math as raw TeX for MathJax (`\(...\)`, `\[...\]`, `align`, etc.);
+- shifts headings down one level, so `\section` becomes `<h2>` like an Org note (the template `<h1>` is the page title);
+- turns `\begin{info}...\end{info}` into `<div class="info">`, matching the Org special block. Other admonition names already styled by the theme (`warning`, `theorem`, `definition`, `proof`, `note`, `tip`) work the same way if you define the environment in LaTeX;
+- highlights code blocks and aliases pandoc's classes onto the same palette as the Org notes.
+
+### Metadata
+
+The builder reads the same metadata from a `.tex` note using `%+` comment lines, which LaTeX ignores. They must come **before** `\documentclass`:
+
+```latex
+%+TITLE: A note title
+%+DESCRIPTION: A short page description
+\documentclass{article}
+...
+```
+
+Only `TITLE` is required. A `.tex` and an `.org` note that would build to the same page (for example `foo.tex` and `foo.org`) is a hard error.
+
+### Macros
+
+Define reusable macros with plain `\newcommand` in `site/latex/macros.tex` and `\input` it from a note:
+
+```latex
+\input{../site/latex/macros}
+```
+
+pandoc expands `\newcommand` macros — including ones with arguments, and inside math — while converting, so **MathJax never sees them** and there is nothing to keep in sync. The same file is used natively when you compile the note to a PDF, so one definition serves both the web and print.
+
+Exotic definitions (`\def`, `xparse`, macros with optional arguments) may not be expanded by pandoc. If you must use one inside math, either avoid it in `.tex` notes or also declare it in the MathJax `tex.macros` config in `site/templates/page.html`.
+
+### PDFs
+
+A `.tex` note is already LaTeX, so its PDF comes straight from `pdflatex` — no Org→LaTeX step. `\input` and `\includegraphics` paths resolve relative to the note's own directory, both for pandoc and for a PDF build, so compile from that directory:
+
+```sh
+cd notes && pdflatex example_latex.tex
+```
+
+`just latex` copies the `.tex` sources into `latex.root` (alongside the LaTeX that Org notes export), giving one directory with the LaTeX for every note.
+
+### Limitations
+
+- Info boxes on the web do not render a tcolorbox title; `\begin{info}[...]` options are dropped. Use a bold lead-in or a subsection instead.
+- pandoc understands math, sectioning, and common constructs, not arbitrary package behavior. Keep `.tex` notes math- and prose-focused, as the Org notes are.
+- Code syntax classes come from pandoc, not Org's htmlize, so a language must be given (for example `\begin{lstlisting}[language=Python]`) for highlighting.
+
+Shared LaTeX includes (`macros.tex`, `header.tex`) live in `site/latex/`, not in `notes/`, so that every `.tex` file under `notes/` is a real note.
+
 ## Commands
 
 List commands:
@@ -132,19 +190,25 @@ Export Org notes to HTML fragments:
 just fragments
 ```
 
+Export LaTeX notes to HTML fragments (pandoc):
+
+```sh
+just tex-fragments
+```
+
 Build the final site from existing fragments:
 
 ```sh
 just build
 ```
 
-Export and build:
+Export both note types and build:
 
 ```sh
 just quick
 ```
 
-Export full LaTeX documents:
+Export full LaTeX documents from Org notes and copy `.tex` note sources into `latex.root`:
 
 ```sh
 just latex
@@ -216,8 +280,8 @@ python build_site.py
 It performs these steps:
 
 1. Reads `site.yml`.
-2. Finds Org notes under `notes.root`.
-3. Reads `#+TITLE` and optional `#+DESCRIPTION` metadata. Metadata keys are case-insensitive.
+2. Finds Org (`.org`) and LaTeX (`.tex`) notes under `notes.root`, and errors if two of them would build to the same page.
+3. Reads `TITLE` and optional `DESCRIPTION` metadata from each source (`#+` in Org, `%+` in LaTeX). Metadata keys are case-insensitive.
 4. Reads the matching HTML fragment from `fragments.root`.
 5. Renders note pages and `index.html`.
 6. Copies configured assets.

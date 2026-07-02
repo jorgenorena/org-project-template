@@ -21,10 +21,12 @@ The website is a view of the project, not the project.
 
 There are two stages.
 
-1. Emacs exports Org notes to body-only HTML fragments.
+1. Each note is exported to a body-only HTML fragment. Emacs exports `.org` notes; `export_tex.py` runs pandoc on `.tex` notes. Both write to the same mirrored path under `fragments.root`.
 2. `build_site.py` reads metadata, wraps fragments in templates, builds index/navigation, copies assets, and validates links.
 
-The Python builder must not parse or rewrite Org-generated body HTML. It should preserve equations, code blocks, special blocks, citations, figure links, and inter-note links.
+The builder is format-agnostic after the fragment stage: it discovers notes by source suffix, reads metadata from the source, reads the mirrored fragment, and scrapes `<h2>`–`<h4>` heading ids for the section nav. It works the same whether a fragment came from Org or from pandoc.
+
+The Python builder must not parse or rewrite exported body HTML. It should preserve equations, code blocks, special blocks, citations, figure links, and inter-note links.
 
 ## Configuration and path contract
 
@@ -111,6 +113,8 @@ Optional but useful:
 - `ORDER`
 
 The builder reads metadata from the Org source, not from the exported HTML.
+
+LaTeX notes carry the same metadata as `%+KEY: value` comment lines (which LaTeX ignores), placed before `\documentclass`. The metadata regex accepts both `#+` and `%+`.
 
 ## Template contract
 
@@ -210,6 +214,29 @@ Org source blocks should be exported with semantic htmlize spans. The exported f
 
 If colors do not appear, first check that `themes.css` defines syntax variables used by `base.css`, e.g. `--syntax-keyword`, `--syntax-string`, `--syntax-variable`.
 
+## Writing notes in LaTeX
+
+Notes may be authored directly in LaTeX as `.tex` files under `notes/`. `export_tex.py` converts them with pandoc; keep that toolchain thin, the same as the Org one.
+
+Fixed pandoc contract (`export_tex.py`):
+
+- `--from=latex --to=html5` and no `--standalone`, producing a body-only fragment.
+- `--mathjax`, so math is left as raw TeX for the site's MathJax. Do not switch pandoc to image or MathML math.
+- `--shift-heading-level-by=1`, so `\section` becomes `<h2>` and matches the Org section-nav contract. Never emit `<h1>` in a fragment; that belongs to the template.
+- pandoc runs with the note's own directory as its working directory, so `\input` and `\includegraphics` resolve as they would for a PDF built in place.
+
+What pandoc gives for free, and must be preserved:
+
+- `\newcommand` macros (with arguments, inside math) are expanded during conversion, so MathJax never needs them. This is the whole macro-sharing story: one `\newcommand`, `\input` for both PDF and web. Do not add a MathJax-macros duplication path unless a note genuinely needs `\def`/`xparse`/optional-argument macros that pandoc cannot expand.
+- An unknown environment `\begin{X}...\end{X}` becomes `<div class="X">`. `info` therefore reuses the Org admonition styling with no filter. `warning`, `theorem`, `definition`, `proof`, `note`, and `tip` are already styled in `base.css`.
+- Code blocks are highlighted with skylighting token classes (`kw`, `cf`, `im`, `st`, `co`, `dv`, ...). `base.css` aliases those onto the same `--syntax-*` variables as the Org `org-*` classes. If you change the code palette, change both the `org-*` rules and the `pre.sourceCode .*` rules.
+
+Discovery and clashes live in `build_site.py`: it globs `*.org` and `*.tex`, and `check_slug_clashes` fails if two sources build to the same page. Shared LaTeX includes (`macros.tex`, `header.tex`) live in `site/latex/`, never in `notes/`, so every `.tex` under `notes/` is a real note (each still needs `%+TITLE`).
+
+`just latex` copies `.tex` note sources into `latex.root` via `export_tex.py latex`, so that directory holds the LaTeX for every note (Org-exported and hand-written).
+
+Do not add a second heavy converter (LaTeXML, tex4ht) unless notes outgrow pandoc's LaTeX subset. If they do, it is a converter swap behind the same fragment contract, not a builder change.
+
 ## Bibliography
 
 Use Org native citations and a BibTeX file.
@@ -274,15 +301,18 @@ default:
 fragments:
     emacsclient --eval '(progn (load-file "{{justfile_directory()}}/export-fragments.el") (my/site-export-all-fragments))'
 
+tex-fragments:
+    python export_tex.py fragments
+
 build:
     python build_site.py
 
 serve:
     python -m http.server 8000 --directory public
 
-quick: fragments build
+quick: fragments tex-fragments build
 
-site: fragments build serve
+site: fragments tex-fragments build serve
 
 clean:
     rm -rf build public
