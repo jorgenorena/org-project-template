@@ -1,294 +1,170 @@
-# Advanced Cosmology Notes Site
+# Research Notes Site
 
-This project builds a static website from Org-mode notes. Individual notes can also be written directly in LaTeX.
+This repository builds a static website from research notes written in either
+Org mode or LaTeX. It also collects a coherent LaTeX version of the notes:
+Org notes are exported to `.tex`, while hand-written `.tex` notes are copied as
+source files.
 
-The build has two stages:
+The build stays deliberately small. Emacs handles Org export, pandoc handles
+LaTeX-to-HTML fragments, and `build_site.py` wraps those fragments with plain
+HTML templates.
 
-1. Each note is exported to a body-only HTML fragment. `export-fragments.el` handles `.org` notes; `export_tex.py` (pandoc) handles `.tex` notes.
-2. `build_site.py` wraps those fragments with HTML templates, builds the index and navigation, copies assets, and validates local links.
+## What It Produces
 
-The intended data flow is the same for both formats:
+- `public/`: the generated static website.
+- `build/`: intermediate body-only HTML fragments.
+- `build/latex/`: LaTeX output for all notes.
+
+The path layout is mirrored:
 
 ```text
-notes/foo.org             notes/bar.tex
-  -> build/foo.html         -> build/bar.html
-  -> public/foo.html        -> public/bar.html
+notes/foo.org      -> build/foo.html      -> public/foo.html
+notes/bar.tex      -> build/bar.html      -> public/bar.html
+notes/sub/baz.org  -> build/sub/baz.html  -> public/sub/baz.html
 ```
 
-Nested notes keep the same relative path:
+## Dependencies
 
-```text
-notes/project/baz.org
-  -> build/project/baz.html
-  -> public/project/baz.html
-```
+Required:
 
-Everything after the fragment stage is format-agnostic, so Org and LaTeX notes share the same index, navigation, theme, MathJax, and link validation.
+- Python 3 with `PyYAML`.
+- `just`, used as the command runner.
+- Emacs with Org export support.
+- `htmlize`, used by Org HTML export for source highlighting.
+- `pandoc`, used to convert `.tex` notes to HTML fragments.
 
-## Files
+Optional:
 
-- `site.yml` defines the site architecture: source paths, fragment paths, output paths, templates, copied assets, and index metadata.
-- `export-fragments.el` is the Emacs/Org exporter. It reads `notes.root` and `fragments.root` from `site.yml`.
-- `export_tex.py` is the LaTeX exporter. It runs pandoc to convert `.tex` notes into the same body-only fragments, and can also copy `.tex` sources into `latex.root`.
-- `build_site.py` is the static-site builder. It reads `site.yml`, loads note metadata from Org and LaTeX headers, wraps fragments with templates, copies assets, and checks links.
-- `site/latex/` holds shared LaTeX pieces: `header.tex` (preamble injected into Org's LaTeX export) and `macros.tex` (macros shared by LaTeX notes and their PDFs).
-- `site/templates/` contains plain HTML templates with `{{ placeholder }}` replacement.
-- `site/static/` contains CSS, JavaScript, and vendored browser assets copied into the output site.
-- `justfile` provides the normal commands for exporting, building, serving, and cleaning.
+- A TeX distribution such as TeX Live if you want to compile PDFs directly.
+- `pdflatex` for hand-written `.tex` notes and generated Org LaTeX.
 
-## Configuration
+The Org recipes call `emacsclient`, so start an Emacs server before running
+`just quick`, `just site`, or `just latex`. No Node or frontend build step is
+required. Browser assets such as MathJax and fonts are vendored under
+`site/static/vendor/`.
 
-`site.yml` is the source of truth for the build architecture.
+## Quick Start
 
-```yml
-site:
-  title: Advanced Cosmology
-  output: public
-  static: static
+Put notes in `notes/`.
 
-notes:
-  root: notes
-  public_prefix: ""
-
-fragments:
-  root: build
-
-latex:
-  root: build/latex
-  header: site/latex/header.tex
-
-templates:
-  page: site/templates/page.html
-  index: site/templates/index.html
-
-assets:
-  - from: site/static
-    to: static
-  - from: results
-    to: results
-  - from: notes/figures
-    to: figures
-
-index:
-  title: Notes
-  description: Course and project notes
-```
-
-Important fields:
-
-- `site.title`: site name shown in templates.
-- `site.output`: final generated website directory.
-- `site.static`: URL path, relative to `site.output`, where template CSS and JS are served from.
-- `notes.root`: Org source directory.
-- `notes.public_prefix`: optional subdirectory for generated note pages inside `site.output`.
-- `fragments.root`: directory where `export-fragments.el` writes body-only HTML fragments.
-- `latex.root`: directory where `export-fragments.el` writes full LaTeX documents.
-- `latex.header`: shared LaTeX preamble content injected into every exported document.
-- `templates.page`: template for note pages.
-- `templates.index`: template for the index page.
-- `assets`: directories copied into the output site. The `site/static` mapping carries local fonts and MathJax under `static/vendor/`.
-- `index.title` and `index.description`: metadata and visible title for `index.html`.
-
-`site.static` should match the `to` path for the `site/static` asset mapping unless you also change the templates.
-
-Changing `notes.root` or `fragments.root` changes both the exporter and the builder. Changing `site.output` changes the builder and the `serve`/`clean` commands.
-
-## Org Notes
-
-Each note should include at least:
+For an Org note:
 
 ```org
-#+TITLE: A note title
-#+DESCRIPTION: A short page description
+#+TITLE: My note
+#+DESCRIPTION: Short description for the index
+
+* First section
 ```
 
-The builder reads metadata from the Org source, not from the exported HTML.
-
-Body-only Org export intentionally omits the Org title block. The page title comes from `#+TITLE` and is inserted by the template.
-
-Local image links should point to assets that are copied by `site.yml`. For example:
-
-```org
-[[file:figures/sine_wave.png]]
-```
-
-works with:
-
-```yml
-assets:
-  - from: notes/figures
-    to: figures
-```
-
-for top-level notes.
-
-## LaTeX Notes
-
-A note can be written directly in LaTeX instead of Org. Put a `.tex` file under `notes/` and it is picked up automatically. `notes/example_latex.tex` is a worked example.
-
-`export_tex.py` converts each `.tex` note with pandoc into the same kind of body-only fragment the Org exporter produces, so LaTeX notes get the same index card, sidebar navigation, theme, and link checking. Conversion:
-
-- leaves math as raw TeX for MathJax (`\(...\)`, `\[...\]`, `align`, etc.);
-- shifts headings down one level, so `\section` becomes `<h2>` like an Org note (the template `<h1>` is the page title);
-- turns `\begin{info}...\end{info}` into `<div class="info">`, matching the Org special block. Other admonition names already styled by the theme (`warning`, `theorem`, `definition`, `proof`, `note`, `tip`) work the same way if you define the environment in LaTeX;
-- highlights code blocks and aliases pandoc's classes onto the same palette as the Org notes.
-
-### Metadata
-
-The builder reads the same metadata from a `.tex` note using `%+` comment lines, which LaTeX ignores. They must come **before** `\documentclass`:
+For a LaTeX note:
 
 ```latex
-%+TITLE: A note title
-%+DESCRIPTION: A short page description
+%+TITLE: My LaTeX note
+%+DESCRIPTION: Short description for the index
 \documentclass{article}
-...
+
+\begin{document}
+\section{First section}
+\end{document}
 ```
 
-Only `TITLE` is required. A `.tex` and an `.org` note that would build to the same page (for example `foo.tex` and `foo.org`) is a hard error.
-
-### Macros
-
-Define reusable macros with plain `\newcommand` in `site/latex/macros.tex` and `\input` it from a note:
-
-```latex
-\input{../site/latex/macros}
-```
-
-pandoc expands `\newcommand` macros — including ones with arguments, and inside math — while converting, so **MathJax never sees them** and there is nothing to keep in sync. The same file is used natively when you compile the note to a PDF, so one definition serves both the web and print.
-
-Exotic definitions (`\def`, `xparse`, macros with optional arguments) may not be expanded by pandoc. If you must use one inside math, either avoid it in `.tex` notes or also declare it in the MathJax `tex.macros` config in `site/templates/page.html`.
-
-### PDFs
-
-A `.tex` note is already LaTeX, so its PDF comes straight from `pdflatex` — no Org→LaTeX step. `\input` and `\includegraphics` paths resolve relative to the note's own directory, both for pandoc and for a PDF build, so compile from that directory:
-
-```sh
-cd notes && pdflatex example_latex.tex
-```
-
-`just latex` copies the `.tex` sources into `latex.root` (alongside the LaTeX that Org notes export), giving one directory with the LaTeX for every note.
-
-### Limitations
-
-- Info boxes on the web do not render a tcolorbox title; `\begin{info}[...]` options are dropped. Use a bold lead-in or a subsection instead.
-- pandoc understands math, sectioning, and common constructs, not arbitrary package behavior. Keep `.tex` notes math- and prose-focused, as the Org notes are.
-- Code syntax classes come from pandoc, not Org's htmlize, so a language must be given (for example `\begin{lstlisting}[language=Python]`) for highlighting.
-
-Shared LaTeX includes (`macros.tex`, `header.tex`) live in `site/latex/`, not in `notes/`, so that every `.tex` file under `notes/` is a real note.
-
-## Commands
-
-List commands:
-
-```sh
-just
-```
-
-Export Org notes to HTML fragments:
-
-```sh
-just fragments
-```
-
-Export LaTeX notes to HTML fragments (pandoc):
-
-```sh
-just tex-fragments
-```
-
-Build the final site from existing fragments:
-
-```sh
-just build
-```
-
-Export both note types and build:
+Build everything:
 
 ```sh
 just quick
 ```
 
-Export full LaTeX documents from Org notes and copy `.tex` note sources into `latex.root`:
+Build and serve locally:
+
+```sh
+just site
+```
+
+Serve an existing build:
+
+```sh
+just serve
+```
+
+Generate the collected LaTeX output:
 
 ```sh
 just latex
 ```
 
-Export, build, and serve locally, optionally on a custom port:
-
-```sh
-just site
-just site 9000
-```
-
-Serve the already-built site, optionally on a custom port:
-
-```sh
-just serve
-just serve 9000
-```
-
-The development server keeps running while you regenerate the site. Press `Ctrl+R` in the server terminal to run `just quick`; press `Ctrl+C` to stop serving. If you need the plain Python server without hotkeys, use:
-
-```sh
-just serve-static
-```
-
-Remove generated output:
+Clean generated output:
 
 ```sh
 just clean
 ```
 
-`just serve` and `just clean` read their output directories from `site.yml`.
+Run `just` to list all recipes.
 
-## Emacs Exporter
+## Commands
 
-`export-fragments.el` uses Org's HTML exporter for body-only site fragments and the LaTeX exporter for full documents. LaTeX exports include transclusions and remove blank lines immediately surrounding display equations without modifying the Org sources. The exporter disables code execution during export:
+- `just fragments`: export Org notes to HTML fragments with Emacs.
+- `just tex-fragments`: export LaTeX notes to HTML fragments with pandoc.
+- `just build`: build `public/` from existing fragments.
+- `just quick`: run Org export, LaTeX export, then site build.
+- `just latex`: export Org notes to LaTeX and copy hand-written `.tex` notes.
+- `just site [port]`: build and serve the site, defaulting to port `8000`.
+- `just serve [port]`: serve the existing `public/` directory.
+- `just serve-static [port]`: serve with Python's plain static server.
+- `just clean`: remove generated directories.
 
-```elisp
-(setq org-export-use-babel nil)
-```
+While `just site` or `just serve` is running, press `Ctrl+R` in that terminal to
+run `just quick` again. Press `Ctrl+C` to stop the server.
 
-The usual command uses a running Emacs server:
+## Writing Notes
+
+Every note needs a `TITLE` metadata line. `DESCRIPTION` is optional but useful
+for the index page.
+
+Org metadata uses `#+KEY: value`; LaTeX metadata uses `%+KEY: value`. LaTeX
+metadata must appear before `\documentclass`.
+
+Do not create both `notes/foo.org` and `notes/foo.tex`: they both generate
+`foo.html`, and the builder treats that as an error.
+
+Use ordinary relative links for figures and generated files. Asset directories
+are copied according to `site.yml`; by default this includes:
+
+- `site/static/` -> `public/static/`
+- `notes/figures/` -> `public/figures/`
+- `results/` -> `public/results/`
+- `algebra/` -> `public/algebra/`
+
+The builder validates local `href` and `src` links after generating the site.
+
+## LaTeX Notes
+
+LaTeX notes are converted with pandoc using body-only HTML output and MathJax
+math. Section headings are shifted down one level so the page template owns the
+single visible `<h1>`.
+
+Reusable macros should usually live in `site/latex/macros.tex` and be included
+from notes with `\input`. Plain `\newcommand` definitions are expanded by
+pandoc during HTML conversion, so MathJax does not need duplicate definitions.
+
+For direct PDF builds of a hand-written note, compile from the note directory
+so relative `\input` and figure paths resolve naturally:
 
 ```sh
-emacsclient --eval '(progn (load-file "/path/to/export-fragments.el") (my/site-export-all-fragments))'
+cd notes
+pdflatex example_latex.tex
 ```
 
-The `just fragments` recipe runs this form for the current project. `just latex` calls `my/site-export-all-latex` and writes mirrored `.tex` files under `latex.root`.
+## Configuration
 
-If no Emacs server is available, use the batch fallback:
+`site.yml` is the source of truth for paths, templates, copied assets, and site
+metadata. The most important fields are:
 
-```sh
-emacs --batch --no-site-file -l export-fragments.el \
-  --eval '(my/site-export-all-fragments)'
-```
+- `site.output`: final website directory.
+- `notes.root`: source note directory.
+- `fragments.root`: intermediate HTML fragment directory.
+- `latex.root`: collected LaTeX output directory.
+- `templates.page` and `templates.index`: HTML templates.
+- `assets`: directory copy rules for static files, figures, and results.
 
-The exporter tries to load `htmlize` from the current Emacs environment. In batch mode, it also looks under the configured Doom Emacs package build directory.
-
-## Python Builder
-
-`build_site.py` requires Python and PyYAML.
-
-Run it directly with:
-
-```sh
-python build_site.py
-```
-
-It performs these steps:
-
-1. Reads `site.yml`.
-2. Finds Org (`.org`) and LaTeX (`.tex`) notes under `notes.root`, and errors if two of them would build to the same page.
-3. Reads `TITLE` and optional `DESCRIPTION` metadata from each source (`#+` in Org, `%+` in LaTeX). Metadata keys are case-insensitive.
-4. Reads the matching HTML fragment from `fragments.root`.
-5. Renders note pages and `index.html`.
-6. Copies configured assets.
-7. Validates local `href` and `src` links in generated HTML.
-
-Note pages also add the current note section headings to the sidebar navigation by reading heading IDs from the exported fragment. The builder still leaves the Org-generated body HTML unchanged.
-
-Fonts and MathJax are vendored under `site/static/vendor/`, so generated pages do not depend on Google Fonts, jsdelivr, or any other network resource at load time.
-
-The builder deliberately does not parse or rewrite Org-generated body HTML.
+Generated directories are disposable. Edit notes, templates, CSS, JavaScript,
+and `site.yml`; rebuild outputs with `just quick` or `just latex`.

@@ -408,7 +408,15 @@ def local_link_targets(html_path: Path) -> list[Path]:
 
         # Skip external/protocol links.
         if raw.startswith(
-            ("http://", "https://", "mailto:", "tel:", "javascript:", "//")
+            (
+                "http://",
+                "https://",
+                "mailto:",
+                "tel:",
+                "data:",
+                "javascript:",
+                "//",
+            )
         ):
             continue
 
