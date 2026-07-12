@@ -1,0 +1,30 @@
+# For dropping this template's rendering machinery on top of an existing
+# repo (notes/, code/, algebra/, whatever it already tracks) without that
+# repo tracking the machinery itself. sync_to_notes_repo.sh installs this
+# as .gitignore in the destination.
+#
+# Everything already in the destination repo is left alone; only the
+# specific files/dirs this template brings in are ignored below.
+
+# Generated output this template produces when built in place.
+/public/
+/build/
+__pycache__/
+*.pyc
+.DS_Store
+*~
+.#*
+
+# This template's own top-level files and directories.
+/AGENT.md
+/README.md
+/build_site.py
+/export-fragments.el
+/export_tex.py
+/justfile
+/references/
+/serve_site.py
+/site/
+/site.yml
+/sync_to_notes_repo.sh
+/.gitignore_alt
