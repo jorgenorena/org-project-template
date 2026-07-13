@@ -27,17 +27,40 @@ src_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 dest_dir="$(cd "$dest_arg" && pwd)"
 [ "$src_dir" != "$dest_dir" ] || { echo "Source and destination are the same directory." >&2; exit 1; }
 
-# .git, .claude: local tool state, never copied.
-# notes: this template's own example notes; the destination keeps whatever
-#        it already has there instead.
-# .gitignore, .gitignore_alt: handled separately below (installed as
-#        the destination's .gitignore, not copied under their own names).
+# What is deliberately NOT copied:
+#   .git                      version control state.
+#   notes                     this template's own example notes; the
+#                             destination keeps whatever it already has.
+#   .gitignore/.gitignore_alt handled separately below (installed as the
+#                             destination's .gitignore, not copied verbatim).
+#   agent files               AI-assistant context that only makes sense in
+#                             this template (.claude, .codex, .cursor,
+#                             AGENT.md, AGENTS.md, CLAUDE.md, GEMINI.md, ...).
+#   Python project files      packaging/env/cache, never the machinery itself
+#                             (the *.py scripts ARE the machinery and are
+#                             copied): __pycache__, *.egg-info, .venv, venv,
+#                             pyproject.toml, setup.py/cfg, requirements*.txt,
+#                             Pipfile*, poetry.lock, uv.lock, .python-version,
+#                             .mypy_cache, .ruff_cache, .pytest_cache, .tox.
+#   readme/docs               README* and docs/; the destination documents
+#                             itself.
 shopt -s dotglob nullglob
 entries=()
 for entry in "$src_dir"/*; do
     name="$(basename "$entry")"
     case "$name" in
-        .git|.claude|notes|.gitignore|.gitignore_alt) continue ;;
+        # version control, example notes, gitignore (handled below)
+        .git|notes|.gitignore|.gitignore_alt) continue ;;
+        # agent / AI-assistant files
+        .claude|.codex|.cursor|.cursorrules|.aider*) continue ;;
+        AGENT.md|AGENTS.md|CLAUDE.md|GEMINI.md|.clauderc) continue ;;
+        # Python project files (not the *.py machinery scripts)
+        __pycache__|*.egg-info|.venv|venv|env|.tox) continue ;;
+        pyproject.toml|setup.py|setup.cfg|requirements*.txt) continue ;;
+        Pipfile|Pipfile.lock|poetry.lock|uv.lock|.python-version) continue ;;
+        .mypy_cache|.ruff_cache|.pytest_cache) continue ;;
+        # readme / docs
+        README*|docs) continue ;;
     esac
     entries+=("$entry")
 done

@@ -6,6 +6,14 @@ site:
 notes:
   root: notes
   public_prefix: ""
+  # Subfolders of notes/ to render as submenus in the site menu. Only the
+  # folders listed here are scanned for notes; any other subfolder (e.g.
+  # notes/figures/) is treated as assets and left alone. Each entry is a
+  # folder name, or a {dir, title} mapping to set the submenu heading.
+  sections: []
+    # - dir: cosmology
+    #   title: Cosmology
+    # - algebra
 
 fragments:
   root: build

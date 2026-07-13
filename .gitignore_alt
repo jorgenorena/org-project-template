@@ -16,8 +16,8 @@ __pycache__/
 .#*
 
 # This template's own top-level files and directories.
-/AGENT.md
-/README.md
+# (README/docs and agent files are not copied by sync_to_notes_repo.sh, so
+# they are not listed here: the destination keeps its own README and AGENT.)
 /build_site.py
 /export-fragments.el
 /export_tex.py

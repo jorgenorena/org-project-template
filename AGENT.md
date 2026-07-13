@@ -66,6 +66,12 @@ site:
 notes:
   root: notes
   public_prefix: ""
+  # Subfolders rendered as submenus. Only listed folders are scanned;
+  # any other subfolder (e.g. figures/) is treated as assets.
+  sections:
+    - dir: cosmology
+      title: Cosmology
+    - algebra
 
 fragments:
   root: build
@@ -231,7 +237,7 @@ What pandoc gives for free, and must be preserved:
 - An unknown environment `\begin{X}...\end{X}` becomes `<div class="X">`. `info` therefore reuses the Org admonition styling with no filter. `warning`, `theorem`, `definition`, `proof`, `note`, and `tip` are already styled in `base.css`.
 - Code blocks are highlighted with skylighting token classes (`kw`, `cf`, `im`, `st`, `co`, `dv`, ...). `base.css` aliases those onto the same `--syntax-*` variables as the Org `org-*` classes. If you change the code palette, change both the `org-*` rules and the `pre.sourceCode .*` rules.
 
-Discovery and clashes live in `build_site.py`: it globs `*.org` and `*.tex`, and `check_slug_clashes` fails if two sources build to the same page. Shared LaTeX includes (`macros.tex`, `header.tex`) live in `site/latex/`, never in `notes/`, so every `.tex` under `notes/` is a real note (each still needs `%+TITLE`).
+Discovery and clashes live in `build_site.py`: it globs `*.org` and `*.tex` for top-level notes plus each subfolder listed in `notes.sections` (recursively), and `check_slug_clashes` fails if two sources build to the same page. Subfolders not listed in `notes.sections` are never scanned, so asset folders under `notes/` (e.g. `figures/`) are left alone rather than rendered. `export_tex.py` mirrors the same discovery so it never pandoc-converts a `.tex` sitting in an asset folder. Shared LaTeX includes (`macros.tex`, `header.tex`) live in `site/latex/`, never in `notes/`, so every `.tex` under a scanned folder is a real note (each still needs `%+TITLE`).
 
 `just latex` copies `.tex` note sources into `latex.root` via `export_tex.py latex`, so that directory holds the LaTeX for every note (Org-exported and hand-written).
 

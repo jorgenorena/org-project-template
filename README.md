@@ -161,6 +161,7 @@ metadata. The most important fields are:
 
 - `site.output`: final website directory.
 - `notes.root`: source note directory.
+- `notes.sections`: subfolders of `notes/` to render as submenus (see below).
 - `fragments.root`: intermediate HTML fragment directory.
 - `latex.root`: collected LaTeX output directory.
 - `templates.page` and `templates.index`: HTML templates.
@@ -168,3 +169,23 @@ metadata. The most important fields are:
 
 Generated directories are disposable. Edit notes, templates, CSS, JavaScript,
 and `site.yml`; rebuild outputs with `just quick` or `just latex`.
+
+## Subfolders and Submenus
+
+Notes placed directly in `notes/` appear as a flat list in the site menu. To
+organize notes into subfolders and show each as its own submenu, list the
+subfolders under `notes.sections` in `site.yml`:
+
+```yml
+notes:
+  root: notes
+  sections:
+    - dir: cosmology
+      title: Cosmology
+    - algebra           # bare name; the submenu title is the folder name
+```
+
+Only the subfolders listed here are scanned for notes (recursively). Any other
+subfolder — for example `notes/figures/` — is treated as assets and left
+alone, so asset directories are never rendered as pages. Each listed section
+becomes a titled submenu in the global site menu, below the top-level notes.

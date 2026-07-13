@@ -53,7 +53,33 @@ def resolve_path(raw: dict, section: str, key: str, default: str) -> Path:
     return path if path.is_absolute() else ROOT / path
 
 
-def load_paths() -> tuple[Path, Path, Path]:
+def load_sections(raw: dict) -> list[str]:
+    """Return the ``notes.sections`` subfolder names (mirrors build_site.py).
+
+    Accepts bare strings or ``{dir, title}`` mappings; only the folder name is
+    relevant here. Any subfolder not listed is treated as assets and skipped.
+    """
+    items = (raw.get("notes") or {}).get("sections", [])
+    if items is None:
+        return []
+    if not isinstance(items, list):
+        fail("site.yml field notes.sections must be a list")
+
+    names: list[str] = []
+    for i, item in enumerate(items, start=1):
+        if isinstance(item, str):
+            name = item
+        elif isinstance(item, dict):
+            name = item.get("dir")
+        else:
+            fail(f"site.yml notes.sections[{i}] must be a string or a mapping")
+        if not isinstance(name, str) or not name:
+            fail(f"site.yml notes.sections[{i}].dir must be a non-empty string")
+        names.append(name)
+    return names
+
+
+def load_paths() -> tuple[Path, Path, Path, list[str]]:
     if not CONFIG_PATH.exists():
         fail(f"missing site configuration: {CONFIG_PATH}")
     raw = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
@@ -63,13 +89,23 @@ def load_paths() -> tuple[Path, Path, Path]:
     notes_dir = resolve_path(raw, "notes", "root", "notes")
     fragments_dir = resolve_path(raw, "fragments", "root", "build")
     latex_dir = resolve_path(raw, "latex", "root", "build/latex")
-    return notes_dir, fragments_dir, latex_dir
+    sections = load_sections(raw)
+    return notes_dir, fragments_dir, latex_dir, sections
 
 
-def tex_notes(notes_dir: Path) -> list[Path]:
+def tex_notes(notes_dir: Path, sections: list[str]) -> list[Path]:
+    """Discover .tex notes the same way build_site.py does: top-level notes
+    plus each configured section (recursively). Unlisted subfolders are left
+    alone so asset .tex files are never converted."""
     if not notes_dir.is_dir():
         fail(f"notes directory does not exist: {notes_dir}")
-    return sorted(notes_dir.rglob("*.tex"))
+
+    found = list(notes_dir.glob("*.tex"))
+    for name in sections:
+        section_dir = notes_dir / name
+        if section_dir.is_dir():
+            found.extend(section_dir.rglob("*.tex"))
+    return sorted(set(found))
 
 
 def export_fragment(note: Path, notes_dir: Path, fragments_dir: Path) -> None:
@@ -101,8 +137,8 @@ def main() -> None:
     if mode not in {"fragments", "latex"}:
         fail(f"unknown mode: {mode!r} (expected 'fragments' or 'latex')")
 
-    notes_dir, fragments_dir, latex_dir = load_paths()
-    notes = tex_notes(notes_dir)
+    notes_dir, fragments_dir, latex_dir, sections = load_paths()
+    notes = tex_notes(notes_dir, sections)
 
     if not notes:
         print(f"No .tex notes found in {notes_dir}; nothing to do.")

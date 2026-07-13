@@ -709,21 +709,35 @@ figcaption,
   padding: 0;
 }
 
-.notes-nav > ol {
+.notes-nav .nav-list {
   margin: 0;
   padding: 0;
   list-style: none;
   counter-reset: notes;
 }
 
-.notes-nav > ol > li {
+/* Subfolder submenus: a titled group with its own numbered list. */
+.nav-group {
+  margin-top: 1.1rem;
+}
+
+.nav-group-title {
+  margin: 0 0 0.25rem 0.95rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--fg-muted);
+}
+
+.notes-nav .nav-list > li {
   counter-increment: notes;
   position: relative;
   margin: 0.15rem 0;
   padding: 0 0 0 0.95rem;
 }
 
-.notes-nav > ol > li::before {
+.notes-nav .nav-list > li::before {
   content: "";
   position: absolute;
   left: 0;
@@ -733,11 +747,11 @@ figcaption,
   background: transparent;
 }
 
-.notes-nav > ol > li.active::before {
+.notes-nav .nav-list > li.active::before {
   background: var(--accent-green);
 }
 
-.notes-nav > ol > li > a {
+.notes-nav .nav-list > li > a {
   display: flex;
   align-items: baseline;
   gap: 0.55rem;
@@ -746,7 +760,7 @@ figcaption,
   padding: 0.28rem 0;
 }
 
-.notes-nav > ol > li > a::before {
+.notes-nav .nav-list > li > a::before {
   content: counter(notes) ".";
   flex: 0 0 1.9rem;
   text-align: right;
@@ -754,7 +768,7 @@ figcaption,
   font-variant-numeric: tabular-nums;
 }
 
-.notes-nav > ol > li.active > a::before {
+.notes-nav .nav-list > li.active > a::before {
   color: var(--accent-green);
 }
 

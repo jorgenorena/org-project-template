@@ -34,6 +34,19 @@ class AssetMapping:
 
 
 @dataclass(frozen=True)
+class SectionConfig:
+    """A notes/ subfolder rendered as its own submenu in the site nav.
+
+    Only subfolders listed here are scanned for notes; every other subfolder
+    (figures/, other asset dirs) is left alone. ``name`` is the path relative
+    to ``notes.root``; ``title`` is the submenu heading.
+    """
+
+    name: str
+    title: str
+
+
+@dataclass(frozen=True)
 class SiteConfig:
     site_title: str
     notes_dir: Path
@@ -44,6 +57,7 @@ class SiteConfig:
     page_template: Path
     index_template: Path
     assets: tuple[AssetMapping, ...]
+    sections: tuple[SectionConfig, ...]
     index_title: str
     index_description: str
 
@@ -66,6 +80,15 @@ class NoteSection:
     level: int
     anchor: str
     title: str
+
+
+@dataclass(frozen=True)
+class NoteGroup:
+    """A run of notes in the nav. ``title`` is ``None`` for top-level notes
+    (rendered ungrouped) and the section title for a subfolder submenu."""
+
+    title: str | None
+    notes: tuple[NoteMeta, ...]
 
 
 def path_from_config(value: object, key: str) -> Path:
@@ -124,6 +147,8 @@ def load_config(path: Path = CONFIG_PATH) -> SiteConfig:
         target = public_dir / public_relative_path(asset.get("to"), f"assets[{i}].to")
         assets.append(AssetMapping(source=source, target=target))
 
+    sections = parse_sections(notes.get("sections", []))
+
     return SiteConfig(
         site_title=string_from_config(site.get("title"), "site.title"),
         notes_dir=path_from_config(notes.get("root"), "notes.root"),
@@ -136,11 +161,48 @@ def load_config(path: Path = CONFIG_PATH) -> SiteConfig:
         page_template=path_from_config(templates.get("page"), "templates.page"),
         index_template=path_from_config(templates.get("index"), "templates.index"),
         assets=tuple(assets),
+        sections=sections,
         index_title=string_from_config(index.get("title"), "index.title"),
         index_description=string_from_config(
             index.get("description"), "index.description"
         ),
     )
+
+
+def parse_sections(value: object) -> tuple[SectionConfig, ...]:
+    """Parse ``notes.sections`` into ordered SectionConfig entries.
+
+    Each entry is either a bare subfolder name (``"algebra"``) or a mapping
+    with an explicit title (``{dir: algebra, title: Algebra}``). The title
+    defaults to the folder name when omitted.
+    """
+    if value is None:
+        return ()
+    if not isinstance(value, list):
+        fail("site.yml field notes.sections must be a list")
+
+    sections: list[SectionConfig] = []
+    for i, item in enumerate(value, start=1):
+        if isinstance(item, str):
+            name, title = item, item
+        elif isinstance(item, dict):
+            raw_name = item.get("dir")
+            if not isinstance(raw_name, str) or not raw_name:
+                fail(f"site.yml notes.sections[{i}].dir must be a non-empty string")
+            name = raw_name
+            raw_title = item.get("title", name)
+            if not isinstance(raw_title, str) or not raw_title:
+                fail(f"site.yml notes.sections[{i}].title must be a non-empty string")
+            title = raw_title
+        else:
+            fail(f"site.yml notes.sections[{i}] must be a string or a mapping")
+
+        parts = Path(name).parts
+        if name.startswith("/") or ".." in parts:
+            fail(f"site.yml notes.sections[{i}].dir must be a relative path inside notes/")
+        sections.append(SectionConfig(name=Path(name).as_posix(), title=title))
+
+    return tuple(sections)
 
 
 def fail(msg: str) -> None:
@@ -221,6 +283,35 @@ def load_note_meta(path: Path, notes_dir: Path) -> NoteMeta:
     )
 
 
+def find_notes(directory: Path, notes_dir: Path, recursive: bool) -> list[NoteMeta]:
+    globber = directory.rglob if recursive else directory.glob
+    paths = [*globber("*.org"), *globber("*.tex")]
+    notes = [load_note_meta(path, notes_dir) for path in paths]
+    notes.sort(key=lambda n: n.slug)
+    return notes
+
+
+def discover_note_groups(config: SiteConfig) -> list[NoteGroup]:
+    """Discover notes as ordered nav groups.
+
+    Top-level notes (directly in ``notes.root``) come first, ungrouped. Then
+    one group per configured section, scanned recursively within that
+    subfolder. Subfolders that are not listed as sections are never scanned,
+    so asset folders (figures, etc.) are ignored rather than rendered.
+    """
+    groups = [NoteGroup(title=None, notes=tuple(find_notes(config.notes_dir, config.notes_dir, recursive=False)))]
+
+    for section in config.sections:
+        section_dir = config.notes_dir / section.name
+        ensure_exists(section_dir, f"notes section directory '{section.name}'")
+        if not section_dir.is_dir():
+            fail(f"notes section '{section.name}' is not a directory: {section_dir}")
+        notes = find_notes(section_dir, config.notes_dir, recursive=True)
+        groups.append(NoteGroup(title=section.title, notes=tuple(notes)))
+
+    return groups
+
+
 def render_template(template: str, context: dict[str, str]) -> str:
     def repl(match: re.Match[str]) -> str:
         key = match.group(1)
@@ -288,30 +379,64 @@ def build_section_nav(sections: list[NoteSection]) -> str:
     return '\n      <ol class="note-sections">\n' + "\n".join(items) + "\n      </ol>\n    "
 
 
-def build_nav(
+def build_nav_list(
     config: SiteConfig,
-    notes: list[NoteMeta],
+    notes: tuple[NoteMeta, ...],
     current_file: Path,
-    current_slug: str | None = None,
-    current_sections: list[NoteSection] | None = None,
+    current_slug: str | None,
+    current_sections: list[NoteSection],
+    indent: str,
 ) -> str:
     items: list[str] = []
-    current_sections = current_sections or []
-
     for note in notes:
         active = ' class="active"' if note.slug == current_slug else ""
         href = html.escape(relative_href(current_file, note_public_path(config, note)))
         title = html.escape(note.title)
         sections = build_section_nav(current_sections) if note.slug == current_slug else ""
-        items.append(f'    <li{active}><a href="{href}">{title}</a>{sections}</li>')
+        items.append(f'{indent}  <li{active}><a href="{href}">{title}</a>{sections}</li>')
 
-    return '<nav class="notes-nav">\n  <ol>\n' + "\n".join(items) + "\n  </ol>\n</nav>"
+    return f'{indent}<ol class="nav-list">\n' + "\n".join(items) + f"\n{indent}</ol>"
+
+
+def build_nav(
+    config: SiteConfig,
+    groups: list[NoteGroup],
+    current_file: Path,
+    current_slug: str | None = None,
+    current_sections: list[NoteSection] | None = None,
+) -> str:
+    current_sections = current_sections or []
+    blocks: list[str] = []
+
+    for group in groups:
+        if not group.notes:
+            continue
+
+        if group.title is None:
+            blocks.append(
+                build_nav_list(
+                    config, group.notes, current_file, current_slug, current_sections, "  "
+                )
+            )
+        else:
+            title = html.escape(group.title)
+            nav_list = build_nav_list(
+                config, group.notes, current_file, current_slug, current_sections, "    "
+            )
+            blocks.append(
+                f'  <div class="nav-group">\n'
+                f'    <h2 class="nav-group-title">{title}</h2>\n'
+                f"{nav_list}\n"
+                f"  </div>"
+            )
+
+    return '<nav class="notes-nav">\n' + "\n".join(blocks) + "\n</nav>"
 
 
 def build_single_note(
     config: SiteConfig,
     note: NoteMeta,
-    notes: list[NoteMeta],
+    groups: list[NoteGroup],
     page_template: str,
 ) -> None:
     fragment_path = config.fragments_dir / note.html_path
@@ -333,7 +458,7 @@ def build_single_note(
             "home": html.escape(relative_href(output_path, config.public_dir / "index.html")),
             "nav": build_nav(
                 config,
-                notes,
+                groups,
                 output_path,
                 current_slug=note.slug,
                 current_sections=sections,
@@ -364,9 +489,17 @@ def check_slug_clashes(notes: list[NoteMeta]) -> None:
         seen[note.slug] = note.source_path
 
 
-def build_index(config: SiteConfig, notes: list[NoteMeta], index_template: str) -> None:
-    content = "\n\n".join(note_card(config, note) for note in notes)
+def build_index(config: SiteConfig, groups: list[NoteGroup], index_template: str) -> None:
     output_path = config.public_dir / "index.html"
+
+    card_blocks: list[str] = []
+    for group in groups:
+        if not group.notes:
+            continue
+        if group.title is not None:
+            card_blocks.append(f'<h2 class="note-group-title">{html.escape(group.title)}</h2>')
+        card_blocks.extend(note_card(config, note) for note in group.notes)
+    content = "\n\n".join(card_blocks)
 
     index_html = render_template(
         index_template,
@@ -378,7 +511,7 @@ def build_index(config: SiteConfig, notes: list[NoteMeta], index_template: str) 
                 relative_href(output_path, config.public_dir / config.static_public_path)
             ),
             "home": html.escape(relative_href(output_path, config.public_dir / "index.html")),
-            "nav": build_nav(config, notes, output_path, current_slug=None),
+            "nav": build_nav(config, groups, output_path, current_slug=None),
             "content": content,
         },
     )
@@ -386,7 +519,7 @@ def build_index(config: SiteConfig, notes: list[NoteMeta], index_template: str) 
     write_text(output_path, index_html)
     write_text(
         config.public_dir / "_nav.html",
-        build_nav(config, notes, output_path, current_slug=None),
+        build_nav(config, groups, output_path, current_slug=None),
     )
 
 
@@ -462,25 +595,21 @@ def main() -> None:
 
     clean_dir(config.public_dir)
 
-    source_paths = [
-        *config.notes_dir.rglob("*.org"),
-        *config.notes_dir.rglob("*.tex"),
-    ]
-    notes = [load_note_meta(path, config.notes_dir) for path in source_paths]
+    groups = discover_note_groups(config)
+    notes = [note for group in groups for note in group.notes]
 
     if not notes:
         fail(f"no .org or .tex notes found in {config.notes_dir}")
 
     check_slug_clashes(notes)
-    notes.sort(key=lambda n: n.slug)
 
     page_template = read_text(config.page_template)
     index_template = read_text(config.index_template)
 
     for note in notes:
-        build_single_note(config, note, notes, page_template)
+        build_single_note(config, note, groups, page_template)
 
-    build_index(config, notes, index_template)
+    build_index(config, groups, index_template)
 
     for asset in config.assets:
         copy_tree_if_exists(asset.source, asset.target)
