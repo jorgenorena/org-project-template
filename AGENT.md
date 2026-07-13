@@ -10,8 +10,9 @@ The project is shaped like a research/teaching project, not like a frontend/back
 - `code/` may contain Mathematica, Python, shell scripts, etc.
 - `data/` may contain inputs.
 - `results/` contains generated outputs: figures, tables, Mathematica snippets, logs.
-- `references/` contains `.bib`, CSL files, papers.
-- `site/` contains presentation machinery: templates, CSS, JS.
+- `references/` contains the project's own `.bib` files and papers.
+- `site/` contains presentation machinery: templates, CSS, JS, LaTeX
+  includes (`site/latex/`), and CSL citation styles (`site/csl/`).
 - `build/` contains intermediate exported HTML fragments.
 - `public/` contains the disposable final website.
 
@@ -104,7 +105,7 @@ Each Org file should start with simple metadata. Metadata keys are case-insensit
 #+SECTION: Lectures
 #+ORDER: 02
 #+BIBLIOGRAPHY: ../references/references.bib
-#+CITE_EXPORT: csl ../references/csl/style.csl
+#+CITE_EXPORT: csl ../site/csl/myrefs.csl
 ```
 
 Required:
@@ -251,7 +252,7 @@ For website export, use CSL:
 
 ```org
 #+BIBLIOGRAPHY: ../references/references.bib
-#+CITE_EXPORT: csl ../references/csl/style.csl
+#+CITE_EXPORT: csl ../site/csl/myrefs.csl
 ```
 
 Place bibliography with:

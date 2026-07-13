@@ -16,13 +16,14 @@ __pycache__/
 .#*
 
 # This template's own top-level files and directories.
-# (README/docs and agent files are not copied by sync_to_notes_repo.sh, so
-# they are not listed here: the destination keeps its own README and AGENT.)
+# (README/docs, agent files, and references/ are not copied by
+# sync_to_notes_repo.sh, so they are not listed here: the destination keeps
+# its own README, AGENT, and bibliography. The CSL citation style ships under
+# site/csl/ and is covered by the /site/ rule below.)
 /build_site.py
 /export-fragments.el
 /export_tex.py
 /justfile
-/references/
 /serve_site.py
 /site/
 /site.yml

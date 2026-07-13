@@ -27,10 +27,28 @@ src_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 dest_dir="$(cd "$dest_arg" && pwd)"
 [ "$src_dir" != "$dest_dir" ] || { echo "Source and destination are the same directory." >&2; exit 1; }
 
+# Site-local files: configuration the destination repo owns and customizes.
+# They are copied only when the destination doesn't already have one, so
+# re-running this script to update the machinery never clobbers the
+# destination's own site.yml / justfile.
+site_local="site.yml justfile"
+
+is_site_local() {
+    local candidate="$1" name
+    for name in $site_local; do
+        [ "$name" = "$candidate" ] && return 0
+    done
+    return 1
+}
+
 # What is deliberately NOT copied:
 #   .git                      version control state.
 #   notes                     this template's own example notes; the
 #                             destination keeps whatever it already has.
+#   references                the destination's own bibliography and papers
+#                             (.bib, PDFs). The CSL citation *style* is
+#                             machinery and ships under site/csl/, which IS
+#                             copied as part of site/.
 #   .gitignore/.gitignore_alt handled separately below (installed as the
 #                             destination's .gitignore, not copied verbatim).
 #   agent files               AI-assistant context that only makes sense in
@@ -49,8 +67,8 @@ entries=()
 for entry in "$src_dir"/*; do
     name="$(basename "$entry")"
     case "$name" in
-        # version control, example notes, gitignore (handled below)
-        .git|notes|.gitignore|.gitignore_alt) continue ;;
+        # version control, example content, gitignore (handled below)
+        .git|notes|references|.gitignore|.gitignore_alt) continue ;;
         # agent / AI-assistant files
         .claude|.codex|.cursor|.cursorrules|.aider*) continue ;;
         AGENT.md|AGENTS.md|CLAUDE.md|GEMINI.md|.clauderc) continue ;;
@@ -70,7 +88,11 @@ for entry in "${entries[@]}" "$src_dir/.gitignore_alt"; do
     name="$(basename "$entry")"
     [ "$name" = ".gitignore_alt" ] && name=".gitignore"
     if [ -e "$dest_dir/$name" ]; then
-        echo "  $name (overwrites existing)"
+        if is_site_local "$name"; then
+            echo "  $name (kept; destination already has one)"
+        else
+            echo "  $name (overwrites existing)"
+        fi
     else
         echo "  $name"
     fi
@@ -85,6 +107,11 @@ if [ "$assume_yes" -ne 1 ]; then
 fi
 
 for entry in "${entries[@]}"; do
+    name="$(basename "$entry")"
+    if is_site_local "$name" && [ -e "$dest_dir/$name" ]; then
+        echo "keeping existing $name"
+        continue
+    fi
     cp -a "$entry" "$dest_dir/"
 done
 cp -a "$src_dir/.gitignore_alt" "$dest_dir/.gitignore"
