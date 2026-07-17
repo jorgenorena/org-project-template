@@ -5,6 +5,7 @@ import html
 import os
 import re
 import shutil
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -58,6 +59,7 @@ class SiteConfig:
     index_template: Path
     assets: tuple[AssetMapping, ...]
     sections: tuple[SectionConfig, ...]
+    order: tuple[str, ...]
     index_title: str
     index_description: str
 
@@ -148,6 +150,7 @@ def load_config(path: Path = CONFIG_PATH) -> SiteConfig:
         assets.append(AssetMapping(source=source, target=target))
 
     sections = parse_sections(notes.get("sections", []))
+    order = parse_order(notes.get("order", []))
 
     return SiteConfig(
         site_title=string_from_config(site.get("title"), "site.title"),
@@ -162,6 +165,7 @@ def load_config(path: Path = CONFIG_PATH) -> SiteConfig:
         index_template=path_from_config(templates.get("index"), "templates.index"),
         assets=tuple(assets),
         sections=sections,
+        order=order,
         index_title=string_from_config(index.get("title"), "index.title"),
         index_description=string_from_config(
             index.get("description"), "index.description"
@@ -205,8 +209,40 @@ def parse_sections(value: object) -> tuple[SectionConfig, ...]:
     return tuple(sections)
 
 
+def parse_order(value: object) -> tuple[str, ...]:
+    """Parse ``notes.order`` into an ordered tuple of note slugs.
+
+    Each entry is a note slug: the note's path under ``notes.root`` without
+    the ``.org``/``.tex`` extension (e.g. ``intro`` or ``cosmology/flrw``).
+    A trailing ``.org``/``.tex`` is accepted and stripped, so plain filenames
+    work too. Listed notes appear first in this order; notes not listed fall
+    back to the default alphabetical ordering.
+    """
+    if value is None:
+        return ()
+    if not isinstance(value, list):
+        fail("site.yml field notes.order must be a list")
+
+    slugs: list[str] = []
+    for i, item in enumerate(value, start=1):
+        if not isinstance(item, str) or not item.strip():
+            fail(f"site.yml notes.order[{i}] must be a non-empty string")
+        raw = Path(item.strip())
+        if raw.is_absolute() or ".." in raw.parts:
+            fail(f"site.yml notes.order[{i}] must be a relative note slug inside notes/")
+        if raw.suffix.lower() in {".org", ".tex"}:
+            raw = raw.with_suffix("")
+        slugs.append(raw.as_posix())
+
+    return tuple(slugs)
+
+
 def fail(msg: str) -> None:
     raise SystemExit(f"ERROR: {msg}")
+
+
+def warn(msg: str) -> None:
+    sys.stderr.write(f"WARNING: {msg}\n")
 
 
 def ensure_exists(path: Path, what: str) -> None:
@@ -283,11 +319,19 @@ def load_note_meta(path: Path, notes_dir: Path) -> NoteMeta:
     )
 
 
-def find_notes(directory: Path, notes_dir: Path, recursive: bool) -> list[NoteMeta]:
+def find_notes(
+    directory: Path,
+    notes_dir: Path,
+    recursive: bool,
+    order_rank: dict[str, int] | None = None,
+) -> list[NoteMeta]:
     globber = directory.rglob if recursive else directory.glob
     paths = [*globber("*.org"), *globber("*.tex")]
     notes = [load_note_meta(path, notes_dir) for path in paths]
-    notes.sort(key=lambda n: n.slug)
+    rank = order_rank or {}
+    # Explicitly-ordered notes (by their rank) come first; the rest fall back
+    # to alphabetical by slug. An empty rank reproduces the plain slug sort.
+    notes.sort(key=lambda n: (rank.get(n.slug, len(rank)), n.slug))
     return notes
 
 
@@ -298,18 +342,47 @@ def discover_note_groups(config: SiteConfig) -> list[NoteGroup]:
     one group per configured section, scanned recursively within that
     subfolder. Subfolders that are not listed as sections are never scanned,
     so asset folders (figures, etc.) are ignored rather than rendered.
+
+    Within every group, notes are ordered by ``notes.order`` (a global slug
+    ranking) with an alphabetical fallback for anything not listed.
     """
-    groups = [NoteGroup(title=None, notes=tuple(find_notes(config.notes_dir, config.notes_dir, recursive=False)))]
+    # Dense rank by first mention (0, 1, 2, ...) so that len(rank) is always a
+    # valid "after everything listed" sentinel for unlisted notes, even when
+    # the same slug is repeated.
+    rank: dict[str, int] = {}
+    for slug in config.order:
+        if slug not in rank:
+            rank[slug] = len(rank)
+
+    top_level = find_notes(config.notes_dir, config.notes_dir, recursive=False, order_rank=rank)
+    groups = [NoteGroup(title=None, notes=tuple(top_level))]
 
     for section in config.sections:
         section_dir = config.notes_dir / section.name
         ensure_exists(section_dir, f"notes section directory '{section.name}'")
         if not section_dir.is_dir():
             fail(f"notes section '{section.name}' is not a directory: {section_dir}")
-        notes = find_notes(section_dir, config.notes_dir, recursive=True)
+        notes = find_notes(section_dir, config.notes_dir, recursive=True, order_rank=rank)
         groups.append(NoteGroup(title=section.title, notes=tuple(notes)))
 
     return groups
+
+
+def check_order(config: SiteConfig, notes: list[NoteMeta]) -> None:
+    """Warn about ``notes.order`` entries that don't correspond to a note.
+
+    Ordering is best-effort: a stale entry (e.g. a note you renamed or
+    deleted) or a duplicate should not break the build, but you should hear
+    about it so the menu order stays intentional.
+    """
+    known = {note.slug for note in notes}
+    seen: set[str] = set()
+    for slug in config.order:
+        if slug in seen:
+            warn(f"notes.order lists '{slug}' more than once")
+        elif slug not in known:
+            warn(f"notes.order lists '{slug}', which matches no note")
+        seen.add(slug)
 
 
 def render_template(template: str, context: dict[str, str]) -> str:
@@ -602,6 +675,7 @@ def main() -> None:
         fail(f"no .org or .tex notes found in {config.notes_dir}")
 
     check_slug_clashes(notes)
+    check_order(config, notes)
 
     page_template = read_text(config.page_template)
     index_template = read_text(config.index_template)

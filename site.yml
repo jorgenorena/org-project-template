@@ -6,6 +6,15 @@ site:
 notes:
   root: notes
   public_prefix: ""
+  # Explicit menu order. List note slugs (a note's path under notes/ without
+  # the .org/.tex extension) in the order you want them to appear. Listed
+  # notes come first, in this order; any note not listed follows in the
+  # default alphabetical order. Applies within each group (top-level notes
+  # and each section below).
+  order: []
+    # - intro
+    # - flrw-background
+    # - cosmology/perturbations
   # Subfolders of notes/ to render as submenus in the site menu. Only the
   # folders listed here are scanned for notes; any other subfolder (e.g.
   # notes/figures/) is treated as assets and left alone. Each entry is a
