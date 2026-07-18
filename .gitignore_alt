@@ -26,10 +26,8 @@ __pycache__/
 /build_site.py
 /export-fragments.el
 /export_tex.py
-/justfile
 /serve_site.py
 /site/
-/site.yml
 /sync_to_notes_repo.sh
 /.gitignore_alt
 # <<< org-project-template machinery <<<
