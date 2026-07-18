@@ -289,9 +289,14 @@ without vendoring a copy by hand:
 
 It copies the builder scripts (`build_site.py`, `export_tex.py`,
 `export-fragments.el`, `serve_site.py`) and the `site/` directory (templates,
-CSS, JS, LaTeX includes, and the CSL style). It also installs `.gitignore_alt`
-as the destination's `.gitignore`, so the machinery stays untracked there while
-the destination keeps tracking its own content.
+CSS, JS, LaTeX includes, and the CSL style). It also keeps the destination's
+`.gitignore` in sync: the machinery's ignore rules live in `.gitignore_alt`
+between clearly marked `# >>> ... >>>` / `# <<< ... <<<` lines, and the script
+**merges** just that block into the destination's `.gitignore` — replacing any
+previous copy in place and leaving every rule you wrote outside the markers
+untouched. So the machinery stays untracked, your own ignore rules survive each
+re-sync, and stale machinery rules don't pile up. (If a repo has never been
+synced, the script simply writes `.gitignore_alt` as its `.gitignore`.)
 
 It deliberately does **not** copy:
 

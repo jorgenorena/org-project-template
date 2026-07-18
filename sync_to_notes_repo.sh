@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Copies this template's rendering machinery on top of another repo (one
 # that already tracks its own notes/, code/, algebra/, whatever), leaving
-# that repo's existing content untouched, and installs .gitignore_alt as
-# .gitignore there so the destination repo doesn't track the machinery.
+# that repo's existing content untouched, and merges .gitignore_alt into the
+# destination's .gitignore so that repo doesn't track the machinery.
 set -euo pipefail
 
 usage() {
@@ -41,6 +41,67 @@ is_site_local() {
     return 1
 }
 
+# The machinery's ignore rules live in .gitignore_alt between these markers.
+# Rather than overwrite the destination's .gitignore, we replace our own block
+# in place (or append it the first time), so the destination's own rules survive
+# every re-sync, keep their position relative to ours, and stale machinery rules
+# never pile up.
+gitignore_begin="# >>> org-project-template machinery (managed by sync_to_notes_repo.sh) >>>"
+gitignore_end="# <<< org-project-template machinery <<<"
+
+merge_gitignore() {
+    local dest="$dest_dir/.gitignore"
+    if [ ! -f "$dest" ]; then
+        cp -a "$src_dir/.gitignore_alt" "$dest"
+        echo "wrote .gitignore"
+        return
+    fi
+
+    # A begin without its end (hand-edited away) would make the awk below skip
+    # to end-of-file, so refuse rather than silently destroy their rules.
+    local begins ends
+    begins="$(grep -cxF -- "$gitignore_begin" "$dest" || true)"
+    ends="$(grep -cxF -- "$gitignore_end" "$dest" || true)"
+    if [ "$begins" != "$ends" ]; then
+        echo "ERROR: $dest has unbalanced machinery markers ($begins begin, $ends end)." >&2
+        echo "Fix them by hand (or delete the whole block) and re-run." >&2
+        exit 1
+    fi
+
+    if [ "$begins" -gt 1 ]; then
+        echo "ERROR: $dest has $begins machinery blocks; this script only ever writes one." >&2
+        echo "Delete the extras by hand and re-run." >&2
+        exit 1
+    fi
+
+    local tmp
+    tmp="$(mktemp)"
+    if [ "$begins" -eq 1 ]; then
+        # Swap the old block for the new one *where it already sits*. Order
+        # matters in .gitignore (a later '!rule' overrides an earlier ignore),
+        # so moving their rules relative to ours could silently change meaning.
+        awk -v b="$gitignore_begin" -v e="$gitignore_end" -v f="$src_dir/.gitignore_alt" '
+            BEGIN { while ((getline line < f) > 0) block = block line "\n" }
+            $0 == b { skip = 1; printf "%s", block; next }
+            $0 == e { skip = 0; next }
+            !skip
+        ' "$dest" > "$tmp"
+        echo "refreshed the machinery block in .gitignore"
+    else
+        # No block yet: append one, separated from their rules by a blank line.
+        # The command substitution trims any trailing blank lines they had.
+        local kept
+        kept="$(cat "$dest")"
+        {
+            [ -n "$kept" ] && printf '%s\n\n' "$kept"
+            cat "$src_dir/.gitignore_alt"
+        } > "$tmp"
+        echo "appended the machinery block to .gitignore"
+    fi
+    cat "$tmp" > "$dest"
+    rm -f "$tmp"
+}
+
 # What is deliberately NOT copied:
 #   .git                      version control state.
 #   notes                     this template's own example notes; the
@@ -49,7 +110,7 @@ is_site_local() {
 #                             (.bib, PDFs). The CSL citation *style* is
 #                             machinery and ships under site/csl/, which IS
 #                             copied as part of site/.
-#   .gitignore/.gitignore_alt handled separately below (installed as the
+#   .gitignore/.gitignore_alt handled separately below (merged into the
 #                             destination's .gitignore, not copied verbatim).
 #   agent files               AI-assistant context that only makes sense in
 #                             this template (.claude, .codex, .cursor,
@@ -84,9 +145,8 @@ for entry in "$src_dir"/*; do
 done
 
 echo "Will copy into '$dest_dir':"
-for entry in "${entries[@]}" "$src_dir/.gitignore_alt"; do
+for entry in "${entries[@]}"; do
     name="$(basename "$entry")"
-    [ "$name" = ".gitignore_alt" ] && name=".gitignore"
     if [ -e "$dest_dir/$name" ]; then
         if is_site_local "$name"; then
             echo "  $name (kept; destination already has one)"
@@ -97,6 +157,11 @@ for entry in "${entries[@]}" "$src_dir/.gitignore_alt"; do
         echo "  $name"
     fi
 done
+if [ -f "$dest_dir/.gitignore" ]; then
+    echo "  .gitignore (merged; your own rules kept)"
+else
+    echo "  .gitignore"
+fi
 
 if [ "$assume_yes" -ne 1 ]; then
     read -r -p "Proceed? [y/N] " reply
@@ -114,6 +179,6 @@ for entry in "${entries[@]}"; do
     fi
     cp -a "$entry" "$dest_dir/"
 done
-cp -a "$src_dir/.gitignore_alt" "$dest_dir/.gitignore"
+merge_gitignore
 
 echo "Done."
