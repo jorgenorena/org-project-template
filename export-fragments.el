@@ -30,6 +30,7 @@
 (require 'cl-lib)
 (require 'seq)
 (require 'subr-x)
+(require 'url-util)
 
 (defvar my/site-root nil
   "Root directory of the notes website project.")
@@ -193,6 +194,60 @@ session, packages should already be visible."
 (defvar my/site-current-org-file nil
   "Org source file currently being exported.")
 
+(defconst my/site-image-content-hash-length 12
+  "Number of SHA-256 hexadecimal characters used in image cache keys.")
+
+(defun my/site--file-content-hash (file)
+  "Return a short SHA-256 content hash for FILE."
+  (with-temp-buffer
+    (set-buffer-multibyte nil)
+    (insert-file-contents-literally file)
+    (substring
+     (secure-hash 'sha256 (current-buffer))
+     0 my/site-image-content-hash-length)))
+
+(defun my/site--hash-img-tag (tag)
+  "Append a content hash query parameter to a local image URL in TAG."
+  (if (not (string-match
+            "\\`\\(.*\\bsrc[[:space:]]*=[[:space:]]*\\)\\([\"']\\)\\([^\"']+\\)\\2"
+            tag))
+      tag
+    (let* ((prefix (match-string 1 tag))
+           (quote (match-string 2 tag))
+           (src (match-string 3 tag))
+           (suffix (substring tag (match-end 0)))
+           (fragment-pos (string-match "#" src))
+           (fragment (if fragment-pos (substring src fragment-pos) ""))
+           (src-base (if fragment-pos (substring src 0 fragment-pos) src))
+           (query-pos (string-match "?" src-base))
+           (path-part (if query-pos (substring src-base 0 query-pos) src-base))
+           (external-p
+            (or (string-prefix-p "/" path-part)
+                (string-prefix-p "//" path-part)
+                (string-match-p "\\`[[:alpha:]][[:alnum:]+.-]*:" path-part)))
+           (image-file
+            (unless external-p
+              (expand-file-name
+               (url-unhex-string path-part)
+               (file-name-directory my/site-current-org-file)))))
+      (if (not (and image-file (file-regular-p image-file)))
+          tag
+        (let ((separator (if query-pos "&amp;" "?"))
+              (digest (my/site--file-content-hash image-file)))
+          (concat prefix quote src-base separator "v=" digest fragment quote suffix))))))
+
+(defun my/site-add-image-content-hashes (text backend _info)
+  "Add content-derived cache keys to local image URLs in HTML export TEXT."
+  (if (not (org-export-derived-backend-p backend 'html))
+      text
+    (replace-regexp-in-string
+     "<img\\b[^>]*\\bsrc[[:space:]]*=[[:space:]]*[\"'][^\"']+[\"'][^>]*>"
+     (lambda (tag)
+       ;; The replacement function runs while `replace-regexp-in-string'
+       ;; relies on its own match data.  Preserve it around our nested regexes.
+       (save-match-data (my/site--hash-img-tag tag)))
+     text t t)))
+
 (defun my/site--transclusion-target (value source-file)
   "Return the file linked by transclusion VALUE in SOURCE-FILE.
 
@@ -332,7 +387,11 @@ Example:
             (org-export-before-processing-hook
              (cons
               #'my/site-expand-transclusions
-              org-export-before-processing-hook)))
+              org-export-before-processing-hook))
+            (org-export-filter-final-output-functions
+             (cons
+              #'my/site-add-image-content-hashes
+              org-export-filter-final-output-functions)))
         (org-export-to-file
             'html
             out-file

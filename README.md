@@ -158,6 +158,12 @@ are copied according to `site.yml`; by default this includes:
 After generating the site, the builder validates every local `href` and `src`
 link and fails if any point to a missing file.
 
+During HTML fragment export, local image URLs receive a query parameter derived
+from the first 12 hexadecimal characters of the image's SHA-256 digest, for
+example `figures/plot.png?v=8c21bd17c122`. Changing the image changes its URL,
+so a browser showing the live preview requests the new version immediately.
+External and missing image URLs are left unchanged.
+
 ### Admonition blocks
 
 Special blocks are styled by the site CSS. In Org, use

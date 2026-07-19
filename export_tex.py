@@ -23,10 +23,14 @@ Conversion notes:
 """
 from __future__ import annotations
 
+import hashlib
+import html
+import re
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 import yaml
 
@@ -39,6 +43,12 @@ PANDOC_ARGS = [
     "--mathjax",
     "--shift-heading-level-by=1",
 ]
+
+IMG_SRC_RE = re.compile(
+    r"(?P<prefix><img\b[^>]*\bsrc\s*=\s*)(?P<quote>[\"'])(?P<src>.*?)(?P=quote)",
+    re.IGNORECASE | re.DOTALL,
+)
+CONTENT_HASH_LENGTH = 12
 
 
 def fail(msg: str) -> None:
@@ -108,6 +118,34 @@ def tex_notes(notes_dir: Path, sections: list[str]) -> list[Path]:
     return sorted(set(found))
 
 
+def add_image_content_hashes(fragment: str, source_dir: Path) -> str:
+    """Append a content hash to local image URLs in a Pandoc fragment."""
+
+    def replace(match: re.Match[str]) -> str:
+        raw_src = match.group("src")
+        decoded_src = html.unescape(raw_src)
+        split = urlsplit(decoded_src)
+
+        if split.scheme or split.netloc or not split.path or split.path.startswith("/"):
+            return match.group(0)
+
+        image_path = source_dir / unquote(split.path)
+        if not image_path.is_file():
+            return match.group(0)
+
+        digest = hashlib.sha256(image_path.read_bytes()).hexdigest()[:CONTENT_HASH_LENGTH]
+        separator = "&amp;" if split.query else "?"
+        src_without_fragment, marker, raw_fragment = raw_src.partition("#")
+        fragment_suffix = f"{marker}{raw_fragment}"
+        hashed_src = f"{src_without_fragment}{separator}v={digest}{fragment_suffix}"
+        return (
+            f'{match.group("prefix")}{match.group("quote")}'
+            f'{hashed_src}{match.group("quote")}'
+        )
+
+    return IMG_SRC_RE.sub(replace, fragment)
+
+
 def export_fragment(note: Path, notes_dir: Path, fragments_dir: Path) -> None:
     out_file = fragments_dir / note.relative_to(notes_dir).with_suffix(".html")
     out_file.parent.mkdir(parents=True, exist_ok=True)
@@ -123,6 +161,12 @@ def export_fragment(note: Path, notes_dir: Path, fragments_dir: Path) -> None:
         sys.stderr.write(result.stderr)
     if result.returncode != 0:
         fail(f"pandoc failed on {note} (exit {result.returncode})")
+
+    fragment = out_file.read_text(encoding="utf-8")
+    out_file.write_text(
+        add_image_content_hashes(fragment, note.parent),
+        encoding="utf-8",
+    )
 
 
 def copy_latex(note: Path, notes_dir: Path, latex_dir: Path) -> None:
