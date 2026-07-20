@@ -6,23 +6,24 @@ site:
 notes:
   root: notes
   public_prefix: ""
-  # Explicit menu order. List note slugs (a note's path under notes/ without
-  # the .org/.tex extension) in the order you want them to appear. Listed
-  # notes come first, in this order; any note not listed follows in the
-  # default alphabetical order. Applies within each group (top-level notes
-  # and each section below).
-  order: []
-    # - intro
+  # The site menu, written in the order it renders. Each entry is either a
+  # note slug (its path under notes/ without the .org/.tex extension) or a
+  # subfolder to show as a submenu. Only subfolders named here are scanned
+  # for notes; any other subfolder (e.g. notes/figures/) is treated as
+  # assets and left alone.
+  #
+  # Anything you leave out still appears: an unlisted note is appended
+  # alphabetically, inside its own submenu if it lives in a listed folder,
+  # otherwise at the end of the menu. So an empty menu just lists every
+  # top-level note alphabetically.
+  menu: []
+    # - intro                    # a top-level note
     # - flrw-background
-    # - cosmology/perturbations
-  # Subfolders of notes/ to render as submenus in the site menu. Only the
-  # folders listed here are scanned for notes; any other subfolder (e.g.
-  # notes/figures/) is treated as assets and left alone. Each entry is a
-  # folder name, or a {dir, title} mapping to set the submenu heading.
-  sections: []
-    # - dir: cosmology
-    #   title: Cosmology
-    # - algebra
+    # - dir: cosmology           # a subfolder, as its own submenu
+    #   title: Cosmology         # optional; defaults to the folder name
+    #   notes:                   # optional; may be partial
+    #     - perturbations
+    # - algebra                  # a bare folder name works too
 
 fragments:
   root: build

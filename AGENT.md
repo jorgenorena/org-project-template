@@ -67,17 +67,17 @@ site:
 notes:
   root: notes
   public_prefix: ""
-  # Explicit menu order: note slugs (path under notes/ without extension).
-  # Listed notes come first, in this order; the rest fall back to
-  # alphabetical. Applies within each group (top-level and each section).
-  order:
+  # The menu, in render order. Entries are note slugs (path under notes/
+  # without extension) or subfolders shown as submenus. Only subfolders
+  # named here are scanned; any other (e.g. figures/) is treated as assets.
+  # Anything unlisted is appended alphabetically: inside its own submenu if
+  # it lives in a listed folder, otherwise at the end of the menu.
+  menu:
     - flrw-background
-    - cosmology/perturbations
-  # Subfolders rendered as submenus. Only listed folders are scanned;
-  # any other subfolder (e.g. figures/) is treated as assets.
-  sections:
     - dir: cosmology
       title: Cosmology
+      notes:
+        - perturbations
     - algebra
 
 fragments:
@@ -119,10 +119,9 @@ Optional but useful:
 
 - `DESCRIPTION` — shown on the index cards.
 
-Menu structure is set in `site.yml`, not in per-note metadata: notes are
-grouped into submenus by subfolder via `notes.sections`, and ordered via
-`notes.order`. The builder reads title and description from the Org source,
-not from the exported HTML.
+Menu structure is set in `site.yml`, not in per-note metadata: `notes.menu` is
+a single list giving both the order and the subfolder submenus. The builder
+reads title and description from the Org source, not from the exported HTML.
 
 LaTeX notes carry the same metadata as `%+KEY: value` comment lines (which LaTeX ignores), placed before `\documentclass`. The metadata regex accepts both `#+` and `%+`.
 
@@ -241,7 +240,7 @@ What pandoc gives for free, and must be preserved:
 - An unknown environment `\begin{X}...\end{X}` becomes `<div class="X">`. `info` therefore reuses the Org admonition styling with no filter. `warning`, `theorem`, `definition`, `proof`, `note`, and `tip` are already styled in `base.css`.
 - Code blocks are highlighted with skylighting token classes (`kw`, `cf`, `im`, `st`, `co`, `dv`, ...). `base.css` aliases those onto the same `--syntax-*` variables as the Org `org-*` classes. If you change the code palette, change both the `org-*` rules and the `pre.sourceCode .*` rules.
 
-Discovery and clashes live in `build_site.py`: it globs `*.org` and `*.tex` for top-level notes plus each subfolder listed in `notes.sections` (recursively), and `check_slug_clashes` fails if two sources build to the same page. Within every group notes are ordered by `notes.order` (a global list of slugs) with an alphabetical fallback for anything unlisted; `check_order` warns (without failing) about order entries that match no note. Subfolders not listed in `notes.sections` are never scanned, so asset folders under `notes/` (e.g. `figures/`) are left alone rather than rendered. `export_tex.py` mirrors the same discovery so it never pandoc-converts a `.tex` sitting in an asset folder. Shared LaTeX includes (`macros.tex`, `header.tex`) live in `site/latex/`, never in `notes/`, so every `.tex` under a scanned folder is a real note (each still needs `%+TITLE`).
+Discovery and clashes live in `build_site.py`: it globs `*.org` and `*.tex` for top-level notes plus each subfolder reached by `notes.menu` (recursively), and `check_slug_clashes` fails if two sources build to the same page. `discover_note_groups` walks `notes.menu` in order, emitting a titled group per subfolder and folding runs of bare note entries into untitled groups, so the nav mirrors the config exactly. Each note is claimed by the first entry that mentions it; unclaimed notes are appended alphabetically, within their submenu or at the end of the menu. Stale and duplicate entries only warn, but a `dir:` naming a missing folder fails. Subfolders not reached by `notes.menu` are never scanned, so asset folders under `notes/` (e.g. `figures/`) are left alone rather than rendered — `warn_unscanned_folders` flags any that nonetheless contain notes. `export_tex.py` mirrors the same discovery so it never pandoc-converts a `.tex` sitting in an asset folder. Shared LaTeX includes (`macros.tex`, `header.tex`) live in `site/latex/`, never in `notes/`, so every `.tex` under a scanned folder is a real note (each still needs `%+TITLE`).
 
 `just latex` copies `.tex` note sources into `latex.root` via `export_tex.py latex`, so that directory holds the LaTeX for every note (Org-exported and hand-written).
 

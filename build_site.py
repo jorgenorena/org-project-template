@@ -35,16 +35,30 @@ class AssetMapping:
 
 
 @dataclass(frozen=True)
-class SectionConfig:
+class MenuRef:
+    """A bare ``notes.menu`` entry, e.g. ``- intro`` or ``- algebra``.
+
+    Whether it names a note or a subfolder is decided at discovery time by
+    looking at the filesystem, so the common case stays a one-liner.
+    """
+
+    name: str
+
+
+@dataclass(frozen=True)
+class MenuSection:
     """A notes/ subfolder rendered as its own submenu in the site nav.
 
-    Only subfolders listed here are scanned for notes; every other subfolder
-    (figures/, other asset dirs) is left alone. ``name`` is the path relative
-    to ``notes.root``; ``title`` is the submenu heading.
+    Only subfolders reachable from ``notes.menu`` are scanned for notes; every
+    other subfolder (figures/, other asset dirs) is left alone. ``name`` is the
+    path relative to ``notes.root``, ``title`` is the submenu heading, and
+    ``notes`` is an optional, possibly partial ordering of the notes inside it
+    (stored as full slugs).
     """
 
     name: str
     title: str
+    notes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -58,8 +72,7 @@ class SiteConfig:
     page_template: Path
     index_template: Path
     assets: tuple[AssetMapping, ...]
-    sections: tuple[SectionConfig, ...]
-    order: tuple[str, ...]
+    menu: tuple[MenuRef | MenuSection, ...]
     index_title: str
     index_description: str
 
@@ -149,8 +162,8 @@ def load_config(path: Path = CONFIG_PATH) -> SiteConfig:
         target = public_dir / public_relative_path(asset.get("to"), f"assets[{i}].to")
         assets.append(AssetMapping(source=source, target=target))
 
-    sections = parse_sections(notes.get("sections", []))
-    order = parse_order(notes.get("order", []))
+    check_retired_menu_fields(notes)
+    menu = parse_menu(notes.get("menu", []))
 
     return SiteConfig(
         site_title=string_from_config(site.get("title"), "site.title"),
@@ -164,8 +177,7 @@ def load_config(path: Path = CONFIG_PATH) -> SiteConfig:
         page_template=path_from_config(templates.get("page"), "templates.page"),
         index_template=path_from_config(templates.get("index"), "templates.index"),
         assets=tuple(assets),
-        sections=sections,
-        order=order,
+        menu=menu,
         index_title=string_from_config(index.get("title"), "index.title"),
         index_description=string_from_config(
             index.get("description"), "index.description"
@@ -173,68 +185,96 @@ def load_config(path: Path = CONFIG_PATH) -> SiteConfig:
     )
 
 
-def parse_sections(value: object) -> tuple[SectionConfig, ...]:
-    """Parse ``notes.sections`` into ordered SectionConfig entries.
+def check_retired_menu_fields(notes: dict[str, object]) -> None:
+    """Reject the old ``notes.sections`` / ``notes.order`` pair.
 
-    Each entry is either a bare subfolder name (``"algebra"``) or a mapping
-    with an explicit title (``{dir: algebra, title: Algebra}``). The title
-    defaults to the folder name when omitted.
+    Silently ignoring them would drop whole subfolders from the site (an
+    unlisted folder is never scanned), so say plainly what to write instead.
+    """
+    for key in ("sections", "order"):
+        if notes.get(key) is not None:
+            fail(
+                f"site.yml field notes.{key} has been replaced by notes.menu, "
+                "a single list that reads in the same order as the rendered "
+                "menu. Write each top-level note as a bare slug and each "
+                "subfolder as '- dir: <folder>' (with an optional 'title:' and "
+                "an optional 'notes:' order inside it). See the README section "
+                "'The Menu'."
+            )
+
+
+def clean_slug(value: str, key: str) -> str:
+    """Normalise a note slug: relative, no ``..``, no ``.org``/``.tex`` suffix."""
+    raw = Path(value.strip())
+    if raw.is_absolute() or ".." in raw.parts:
+        fail(f"site.yml {key} must be a relative path inside notes/")
+    if raw.suffix.lower() in {".org", ".tex"}:
+        raw = raw.with_suffix("")
+    return raw.as_posix()
+
+
+def parse_menu(value: object) -> tuple[MenuRef | MenuSection, ...]:
+    """Parse ``notes.menu`` into ordered entries.
+
+    An entry is either a bare string (a note slug or a subfolder name, decided
+    at discovery time) or a mapping describing a subfolder::
+
+        menu:
+          - intro                    # a top-level note
+          - dir: cosmology           # a subfolder, as its own submenu
+            title: Cosmology         # optional; defaults to the folder name
+            notes:                   # optional; may be partial
+              - perturbations
     """
     if value is None:
         return ()
     if not isinstance(value, list):
-        fail("site.yml field notes.sections must be a list")
+        fail("site.yml field notes.menu must be a list")
 
-    sections: list[SectionConfig] = []
+    items: list[MenuRef | MenuSection] = []
     for i, item in enumerate(value, start=1):
         if isinstance(item, str):
-            name, title = item, item
-        elif isinstance(item, dict):
-            raw_name = item.get("dir")
-            if not isinstance(raw_name, str) or not raw_name:
-                fail(f"site.yml notes.sections[{i}].dir must be a non-empty string")
-            name = raw_name
-            raw_title = item.get("title", name)
-            if not isinstance(raw_title, str) or not raw_title:
-                fail(f"site.yml notes.sections[{i}].title must be a non-empty string")
-            title = raw_title
-        else:
-            fail(f"site.yml notes.sections[{i}] must be a string or a mapping")
+            if not item.strip():
+                fail(f"site.yml notes.menu[{i}] must be a non-empty string")
+            items.append(MenuRef(name=clean_slug(item, f"notes.menu[{i}]")))
+            continue
+        if not isinstance(item, dict):
+            fail(f"site.yml notes.menu[{i}] must be a string or a mapping")
 
-        parts = Path(name).parts
-        if name.startswith("/") or ".." in parts:
-            fail(f"site.yml notes.sections[{i}].dir must be a relative path inside notes/")
-        sections.append(SectionConfig(name=Path(name).as_posix(), title=title))
+        raw_name = item.get("dir")
+        if not isinstance(raw_name, str) or not raw_name.strip():
+            fail(
+                f"site.yml notes.menu[{i}] is a mapping, so it must have a "
+                "non-empty 'dir' naming the subfolder"
+            )
+        name = clean_slug(raw_name, f"notes.menu[{i}].dir")
 
-    return tuple(sections)
+        raw_title = item.get("title", Path(name).name)
+        if not isinstance(raw_title, str) or not raw_title.strip():
+            fail(f"site.yml notes.menu[{i}].title must be a non-empty string")
 
+        raw_notes = item.get("notes", [])
+        if raw_notes is None:
+            raw_notes = []
+        if not isinstance(raw_notes, list):
+            fail(f"site.yml notes.menu[{i}].notes must be a list")
 
-def parse_order(value: object) -> tuple[str, ...]:
-    """Parse ``notes.order`` into an ordered tuple of note slugs.
+        slugs: list[str] = []
+        for j, entry in enumerate(raw_notes, start=1):
+            if not isinstance(entry, str) or not entry.strip():
+                fail(f"site.yml notes.menu[{i}].notes[{j}] must be a non-empty string")
+            slug = clean_slug(entry, f"notes.menu[{i}].notes[{j}]")
+            # Entries read naturally as relative to the folder ("perturbations"),
+            # but a full slug ("cosmology/perturbations") is accepted too.
+            if slug != name and not slug.startswith(f"{name}/"):
+                slug = f"{name}/{slug}"
+            slugs.append(slug)
 
-    Each entry is a note slug: the note's path under ``notes.root`` without
-    the ``.org``/``.tex`` extension (e.g. ``intro`` or ``cosmology/flrw``).
-    A trailing ``.org``/``.tex`` is accepted and stripped, so plain filenames
-    work too. Listed notes appear first in this order; notes not listed fall
-    back to the default alphabetical ordering.
-    """
-    if value is None:
-        return ()
-    if not isinstance(value, list):
-        fail("site.yml field notes.order must be a list")
+        items.append(
+            MenuSection(name=name, title=raw_title.strip(), notes=tuple(slugs))
+        )
 
-    slugs: list[str] = []
-    for i, item in enumerate(value, start=1):
-        if not isinstance(item, str) or not item.strip():
-            fail(f"site.yml notes.order[{i}] must be a non-empty string")
-        raw = Path(item.strip())
-        if raw.is_absolute() or ".." in raw.parts:
-            fail(f"site.yml notes.order[{i}] must be a relative note slug inside notes/")
-        if raw.suffix.lower() in {".org", ".tex"}:
-            raw = raw.with_suffix("")
-        slugs.append(raw.as_posix())
-
-    return tuple(slugs)
+    return tuple(items)
 
 
 def fail(msg: str) -> None:
@@ -319,70 +359,150 @@ def load_note_meta(path: Path, notes_dir: Path) -> NoteMeta:
     )
 
 
-def find_notes(
-    directory: Path,
-    notes_dir: Path,
-    recursive: bool,
-    order_rank: dict[str, int] | None = None,
-) -> list[NoteMeta]:
+def find_notes(directory: Path, notes_dir: Path, recursive: bool) -> list[NoteMeta]:
+    """All notes in ``directory``, alphabetically by slug."""
     globber = directory.rglob if recursive else directory.glob
     paths = [*globber("*.org"), *globber("*.tex")]
     notes = [load_note_meta(path, notes_dir) for path in paths]
-    rank = order_rank or {}
-    # Explicitly-ordered notes (by their rank) come first; the rest fall back
-    # to alphabetical by slug. An empty rank reproduces the plain slug sort.
-    notes.sort(key=lambda n: (rank.get(n.slug, len(rank)), n.slug))
+    notes.sort(key=lambda n: n.slug)
     return notes
 
 
+def note_source(notes_dir: Path, slug: str) -> Path | None:
+    for suffix in (".org", ".tex"):
+        candidate = notes_dir / f"{slug}{suffix}"
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def resolve_menu(config: SiteConfig) -> list[str | MenuSection]:
+    """Turn each ``notes.menu`` entry into a note slug or a MenuSection.
+
+    A mapping entry is an explicit structural claim, so a missing folder is an
+    error. A bare entry is resolved against the filesystem: a note wins over a
+    folder of the same name, and something that matches neither is only a
+    warning, so renaming a note never breaks the build.
+    """
+    notes_dir = config.notes_dir
+    resolved: list[str | MenuSection] = []
+
+    for item in config.menu:
+        if isinstance(item, MenuSection):
+            section_dir = notes_dir / item.name
+            if not section_dir.is_dir():
+                fail(
+                    f"site.yml notes.menu lists 'dir: {item.name}', but "
+                    f"{section_dir} is not a directory"
+                )
+            resolved.append(item)
+            continue
+
+        if note_source(notes_dir, item.name) is not None:
+            resolved.append(item.name)
+        elif (notes_dir / item.name).is_dir():
+            resolved.append(MenuSection(name=item.name, title=Path(item.name).name))
+        else:
+            warn(
+                f"notes.menu lists '{item.name}', which matches neither a note "
+                f"nor a subfolder under {notes_dir.name}/"
+            )
+
+    return resolved
+
+
+def warn_unscanned_folders(notes_dir: Path, section_names: list[str]) -> None:
+    """Warn about note-bearing subfolders that the menu never mentions.
+
+    Unlisted folders are deliberately never scanned, which is what keeps
+    figures/ and other asset directories out of the site. The cost is that
+    forgetting to list a real folder silently drops it, so say so out loud.
+    """
+    for directory in sorted(p for p in notes_dir.rglob("*") if p.is_dir()):
+        rel = directory.relative_to(notes_dir).as_posix()
+        covered = any(
+            rel == name or rel.startswith(f"{name}/") or name.startswith(f"{rel}/")
+            for name in section_names
+        )
+        if covered:
+            continue
+        if not any(directory.glob("*.org")) and not any(directory.glob("*.tex")):
+            continue
+        warn(
+            f"{notes_dir.name}/{rel}/ contains notes but is not in notes.menu, "
+            "so none of them are on the site. Add '- dir: "
+            f"{rel}' to notes.menu, or ignore this if the folder holds "
+            "includes rather than standalone notes."
+        )
+
+
 def discover_note_groups(config: SiteConfig) -> list[NoteGroup]:
-    """Discover notes as ordered nav groups.
+    """Discover notes as ordered nav groups, following ``notes.menu``.
 
-    Top-level notes (directly in ``notes.root``) come first, ungrouped. Then
-    one group per configured section, scanned recursively within that
-    subfolder. Subfolders that are not listed as sections are never scanned,
-    so asset folders (figures, etc.) are ignored rather than rendered.
-
-    Within every group, notes are ordered by ``notes.order`` (a global slug
-    ranking) with an alphabetical fallback for anything not listed.
+    The menu list is the menu: entries render in exactly the order written,
+    with runs of bare notes forming ungrouped blocks and each subfolder its own
+    titled submenu. Every note belongs to the first place that mentions it;
+    anything unmentioned is appended alphabetically — inside its own submenu
+    for a listed subfolder, or at the very end for a top-level note.
     """
-    # Dense rank by first mention (0, 1, 2, ...) so that len(rank) is always a
-    # valid "after everything listed" sentinel for unlisted notes, even when
-    # the same slug is repeated.
-    rank: dict[str, int] = {}
-    for slug in config.order:
-        if slug not in rank:
-            rank[slug] = len(rank)
+    notes_dir = config.notes_dir
+    resolved = resolve_menu(config)
+    section_names = [i.name for i in resolved if isinstance(i, MenuSection)]
 
-    top_level = find_notes(config.notes_dir, config.notes_dir, recursive=False, order_rank=rank)
-    groups = [NoteGroup(title=None, notes=tuple(top_level))]
+    top_level = find_notes(notes_dir, notes_dir, recursive=False)
+    members: dict[str, list[NoteMeta]] = {
+        item.name: find_notes(notes_dir / item.name, notes_dir, recursive=True)
+        for item in resolved
+        if isinstance(item, MenuSection)
+    }
 
-    for section in config.sections:
-        section_dir = config.notes_dir / section.name
-        ensure_exists(section_dir, f"notes section directory '{section.name}'")
-        if not section_dir.is_dir():
-            fail(f"notes section '{section.name}' is not a directory: {section_dir}")
-        notes = find_notes(section_dir, config.notes_dir, recursive=True, order_rank=rank)
-        groups.append(NoteGroup(title=section.title, notes=tuple(notes)))
+    by_slug: dict[str, NoteMeta] = {}
+    for note in [*top_level, *(n for group in members.values() for n in group)]:
+        by_slug.setdefault(note.slug, note)
 
+    claimed: set[str] = set()
+    groups: list[NoteGroup] = []
+    run: list[NoteMeta] = []
+
+    def flush_run() -> None:
+        if run:
+            groups.append(NoteGroup(title=None, notes=tuple(run)))
+            run.clear()
+
+    def claim(slug: str, where: str) -> NoteMeta | None:
+        note = by_slug.get(slug)
+        if note is None:
+            warn(f"notes.menu {where} lists '{slug}', which matches no note")
+            return None
+        if slug in claimed:
+            warn(f"notes.menu lists '{slug}' more than once; keeping the first")
+            return None
+        claimed.add(slug)
+        return note
+
+    for item in resolved:
+        if isinstance(item, str):
+            note = claim(item, "")
+            if note is not None:
+                run.append(note)
+            continue
+
+        flush_run()
+        ordered = [n for slug in item.notes if (n := claim(slug, f"'{item.name}'"))]
+        # find_notes already sorted these alphabetically.
+        ordered.extend(n for n in members[item.name] if n.slug not in claimed)
+        claimed.update(n.slug for n in members[item.name])
+        groups.append(NoteGroup(title=item.title, notes=tuple(ordered)))
+
+    flush_run()
+
+    leftovers = [n for n in top_level if n.slug not in claimed]
+    if leftovers:
+        claimed.update(n.slug for n in leftovers)
+        groups.append(NoteGroup(title=None, notes=tuple(leftovers)))
+
+    warn_unscanned_folders(notes_dir, section_names)
     return groups
-
-
-def check_order(config: SiteConfig, notes: list[NoteMeta]) -> None:
-    """Warn about ``notes.order`` entries that don't correspond to a note.
-
-    Ordering is best-effort: a stale entry (e.g. a note you renamed or
-    deleted) or a duplicate should not break the build, but you should hear
-    about it so the menu order stays intentional.
-    """
-    known = {note.slug for note in notes}
-    seen: set[str] = set()
-    for slug in config.order:
-        if slug in seen:
-            warn(f"notes.order lists '{slug}' more than once")
-        elif slug not in known:
-            warn(f"notes.order lists '{slug}', which matches no note")
-        seen.add(slug)
 
 
 def render_template(template: str, context: dict[str, str]) -> str:
@@ -675,7 +795,6 @@ def main() -> None:
         fail(f"no .org or .tex notes found in {config.notes_dir}")
 
     check_slug_clashes(notes)
-    check_order(config, notes)
 
     page_template = read_text(config.page_template)
     index_template = read_text(config.index_template)

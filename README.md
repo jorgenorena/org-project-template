@@ -140,9 +140,8 @@ for the index cards. Org metadata uses `#+KEY: value`; LaTeX metadata uses
 `%+KEY: value` and must appear before `\documentclass`.
 
 The builder reads only `TITLE` and `DESCRIPTION` from a note. Menu **grouping**
-and **order** are controlled in `site.yml` (see
-[Menu Order](#menu-order) and [Subfolders and Submenus](#subfolders-and-submenus)),
-not through per-note metadata.
+and **order** are controlled in `site.yml` (see [The Menu](#the-menu)), not
+through per-note metadata.
 
 Do not create both `notes/foo.org` and `notes/foo.tex`: they both generate
 `foo.html`, and the builder treats that clash as an error.
@@ -183,46 +182,67 @@ An Org note can inline another whole Org file before export:
 Transclusions are expanded recursively (cycles are detected and rejected).
 Only whole-file links are supported, not search targets.
 
-## Menu Order
+## The Menu
 
-By default notes are listed alphabetically. To control the order, list note
-slugs under `notes.order` in `site.yml`. A slug is a note's path under
-`notes/` without the `.org`/`.tex` extension:
+The site menu is described by one list, `notes.menu`, written in the order it
+renders. There is no separate grouping and ordering setting: the config reads
+top-to-bottom exactly like the menu it produces.
 
 ```yml
 notes:
   root: notes
-  order:
-    - intro
+  menu:
+    - intro                    # a top-level note
     - flrw-background
-    - cosmology/perturbations   # a note inside a section subfolder
+    - dir: cosmology           # a subfolder, as its own submenu
+      title: Cosmology         # optional; defaults to the folder name
+      notes:                   # optional; may be partial
+        - perturbations
+    - algebra                  # a bare folder name works too
 ```
 
-Listed notes appear first, in this order; any note not listed follows
-alphabetically. The order applies within each group, so it ranks both the
-top-level notes and the notes inside each section. A stale entry (a slug that
-matches no note) is reported as a warning and otherwise ignored, so the build
-never breaks just because a note was renamed or removed.
+An entry is one of:
 
-## Subfolders and Submenus
+- **A note slug** — the note's path under `notes/` without the `.org`/`.tex`
+  extension (`intro`, or `cosmology/perturbations` to pull one note out of its
+  folder and show it at the top level). A trailing extension is accepted and
+  stripped.
+- **A subfolder**, either as a bare folder name or as a `dir:` mapping. Use the
+  mapping to set the submenu `title:`, or to order the notes inside it with
+  `notes:`. Those inner entries read relative to the folder
+  (`perturbations`), though a full slug works too. Subfolders are scanned
+  recursively.
 
-Notes placed directly in `notes/` appear as a flat list in the site menu. To
-organize notes into subfolders and show each as its own submenu, list the
-subfolders under `notes.sections` in `site.yml`:
+A bare entry is resolved by looking at the filesystem: if a note of that name
+exists it is a note, otherwise it is a subfolder. Consecutive note entries
+render as one ungrouped block, so notes and submenus can be interleaved freely.
 
-```yml
-notes:
-  root: notes
-  sections:
-    - dir: cosmology
-      title: Cosmology
-    - algebra           # bare name; the submenu title is the folder name
-```
+### What happens to anything you leave out
 
-Only the subfolders listed here are scanned for notes (recursively). Any other
-subfolder — for example `notes/figures/` — is treated as assets and left
-alone, so asset directories are never rendered as pages. Each listed section
-becomes a titled submenu in the global site menu, below the top-level notes.
+Listing is never mandatory — the menu is a set of preferences layered on a
+sensible default, so a partial list (or no list at all) still shows every note.
+
+- **An unlisted note in a listed subfolder** is appended alphabetically after
+  that submenu's listed notes.
+- **An unlisted top-level note** is appended alphabetically at the very end of
+  the menu. So an empty `menu:` simply lists every top-level note
+  alphabetically.
+- **Every note appears exactly once**, in the first place that mentions it. If
+  you promote `cosmology/perturbations` to the top level, it is not repeated
+  inside the Cosmology submenu.
+- **An unlisted subfolder is never scanned at all.** This is what keeps
+  `notes/figures/` and other asset directories from being rendered as pages,
+  and it is the one case where leaving something out really does hide it. To
+  make that hard to do by accident, the build prints a warning naming any
+  subfolder that contains notes but is not in the menu.
+
+### Errors versus warnings
+
+A `dir:` entry is an explicit structural claim, so pointing it at a folder that
+does not exist stops the build. Everything else about the menu is best-effort
+and only warns — a slug matching no note, or the same note listed twice — so
+renaming or deleting a note never breaks the build, but you still hear about
+the stale entry.
 
 ## LaTeX Notes
 
@@ -267,9 +287,8 @@ and site metadata:
 - `notes.root`: source note directory.
 - `notes.public_prefix`: optional path prefix for notes under the output
   directory (empty by default).
-- `notes.order`: explicit menu order for notes (see [Menu Order](#menu-order)).
-- `notes.sections`: subfolders rendered as submenus (see
-  [Subfolders and Submenus](#subfolders-and-submenus)).
+- `notes.menu`: the site menu — note order and subfolder submenus in one list
+  (see [The Menu](#the-menu)).
 - `fragments.root`: intermediate HTML fragment directory (default `build`).
 - `latex.root`: collected LaTeX output directory (default `build/latex`).
 - `latex.header`: shared LaTeX preamble added to Org-exported `.tex`.

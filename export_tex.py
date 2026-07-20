@@ -63,28 +63,43 @@ def resolve_path(raw: dict, section: str, key: str, default: str) -> Path:
     return path if path.is_absolute() else ROOT / path
 
 
-def load_sections(raw: dict) -> list[str]:
-    """Return the ``notes.sections`` subfolder names (mirrors build_site.py).
+def load_sections(raw: dict, notes_dir: Path) -> list[str]:
+    """Return the subfolders ``notes.menu`` scans (mirrors build_site.py).
 
-    Accepts bare strings or ``{dir, title}`` mappings; only the folder name is
-    relevant here. Any subfolder not listed is treated as assets and skipped.
+    Only the folder names matter here, not the order, so this resolves bare
+    entries the same way: a bare entry is a subfolder when no note of that name
+    exists. Any subfolder the menu never reaches is treated as assets and
+    skipped, so its .tex files are never converted.
     """
-    items = (raw.get("notes") or {}).get("sections", [])
+    notes = raw.get("notes") or {}
+    if notes.get("sections") is not None or notes.get("order") is not None:
+        fail(
+            "site.yml fields notes.sections / notes.order have been replaced "
+            "by notes.menu; see the README section 'The Menu'."
+        )
+
+    items = notes.get("menu", [])
     if items is None:
         return []
     if not isinstance(items, list):
-        fail("site.yml field notes.sections must be a list")
+        fail("site.yml field notes.menu must be a list")
 
     names: list[str] = []
     for i, item in enumerate(items, start=1):
         if isinstance(item, str):
-            name = item
+            name = item.strip()
+            if not name:
+                fail(f"site.yml notes.menu[{i}] must be a non-empty string")
+            # A bare entry naming a real note is a note, not a folder.
+            if any((notes_dir / f"{name}{ext}").is_file() for ext in (".org", ".tex")):
+                continue
         elif isinstance(item, dict):
             name = item.get("dir")
+            if not isinstance(name, str) or not name.strip():
+                fail(f"site.yml notes.menu[{i}].dir must be a non-empty string")
+            name = name.strip()
         else:
-            fail(f"site.yml notes.sections[{i}] must be a string or a mapping")
-        if not isinstance(name, str) or not name:
-            fail(f"site.yml notes.sections[{i}].dir must be a non-empty string")
+            fail(f"site.yml notes.menu[{i}] must be a string or a mapping")
         names.append(name)
     return names
 
@@ -99,14 +114,14 @@ def load_paths() -> tuple[Path, Path, Path, list[str]]:
     notes_dir = resolve_path(raw, "notes", "root", "notes")
     fragments_dir = resolve_path(raw, "fragments", "root", "build")
     latex_dir = resolve_path(raw, "latex", "root", "build/latex")
-    sections = load_sections(raw)
+    sections = load_sections(raw, notes_dir)
     return notes_dir, fragments_dir, latex_dir, sections
 
 
 def tex_notes(notes_dir: Path, sections: list[str]) -> list[Path]:
     """Discover .tex notes the same way build_site.py does: top-level notes
-    plus each configured section (recursively). Unlisted subfolders are left
-    alone so asset .tex files are never converted."""
+    plus each subfolder reached by notes.menu (recursively). Unlisted
+    subfolders are left alone so asset .tex files are never converted."""
     if not notes_dir.is_dir():
         fail(f"notes directory does not exist: {notes_dir}")
 
