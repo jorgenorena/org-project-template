@@ -2,6 +2,10 @@
 
 This project turns Org-mode scientific notes into a static website. Keep the system simple: Org/Emacs exports content fragments; Python wraps them into pages; CSS/JS handles presentation. Do not turn this into a web framework.
 
+## Downstream agent block
+
+`downstream-agent-block.md` is the source for the managed block that `sync_to_notes_repo.sh` merges into a downstream notes repo's root `AGENT.md`. It is not the primary instruction file for editing this template repo. Keep template-maintainer context here in `AGENT.md`; keep downstream consumer instructions in the block source file.
+
 ## Core idea
 
 The project is shaped like a research/teaching project, not like a frontend/backend app.

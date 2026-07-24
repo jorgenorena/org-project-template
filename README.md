@@ -323,11 +323,13 @@ untouched. So the machinery stays untracked, your own ignore rules survive each
 re-sync, and stale machinery rules don't pile up. (If a repo has never been
 synced, the script simply writes `.gitignore_alt` as its `.gitignore`.)
 
+For agent instructions in a destination notes repo, the sync script extracts the managed block from `downstream-agent-block.md` and merges it into that repo's root `AGENT.md`. Existing destination-specific agent instructions outside the managed block are preserved; later syncs replace only the managed block. The block is written to root `AGENT.md`, not left in a sidecar file that agents may not read.
+
 It deliberately does **not** copy:
 
 - version control state (`.git`) and this template's example `notes/` and
   `references/` — the destination keeps its own;
-- agent / assistant files (`.claude`, `AGENT.md`, `CLAUDE.md`, ...);
+- this template's agent / assistant files (`.claude`, `AGENT.md`, `CLAUDE.md`, ...) are not copied verbatim; only the managed notes-site block is merged into the destination's `AGENT.md`;
 - Python project files (`pyproject.toml`, `.venv`, caches, ...) — though the
   `*.py` builder scripts themselves are copied;
 - `README*` and `docs/` — the destination documents itself.

@@ -2,7 +2,8 @@
 # Copies this template's rendering machinery on top of another repo (one
 # that already tracks its own notes/, code/, algebra/, whatever), leaving
 # that repo's existing content untouched, and merges .gitignore_alt into the
-# destination's .gitignore so that repo doesn't track the machinery.
+# destination's .gitignore so that repo doesn't track the machinery. It also
+# merges a managed notes-site block into the destination's AGENT.md.
 set -euo pipefail
 
 usage() {
@@ -48,6 +49,9 @@ is_site_local() {
 # never pile up.
 gitignore_begin="# >>> org-project-template machinery (managed by sync_to_notes_repo.sh) >>>"
 gitignore_end="# <<< org-project-template machinery <<<"
+agent_block_file="$src_dir/downstream-agent-block.md"
+agent_begin="<!-- BEGIN NOTES-SITE-MACHINERY -->"
+agent_end="<!-- END NOTES-SITE-MACHINERY -->"
 
 merge_gitignore() {
     local dest="$dest_dir/.gitignore"
@@ -102,10 +106,85 @@ merge_gitignore() {
     rm -f "$tmp"
 }
 
+write_agent_block() {
+    awk -v b="$agent_begin" -v e="$agent_end" '
+        $0 == b { inside = 1 }
+        inside { print }
+        $0 == e { found = 1; inside = 0 }
+        END { if (!found) exit 1 }
+    ' "$agent_block_file"
+}
+
+merge_agent_block() {
+    local dest="$dest_dir/AGENT.md"
+    if [ ! -f "$agent_block_file" ]; then
+        echo "ERROR: missing downstream agent block source: $agent_block_file" >&2
+        exit 1
+    fi
+
+    local block
+    block="$(mktemp)"
+    if ! write_agent_block > "$block"; then
+        echo "ERROR: $agent_block_file does not contain a complete managed block." >&2
+        rm -f "$block"
+        exit 1
+    fi
+
+    if [ ! -f "$dest" ]; then
+        {
+            printf '# Agent Instructions\n\n'
+            cat "$block"
+        } > "$dest"
+        echo "wrote AGENT.md with the notes-site managed block"
+        rm -f "$block"
+        return
+    fi
+
+    local begins ends
+    begins="$(grep -cxF -- "$agent_begin" "$dest" || true)"
+    ends="$(grep -cxF -- "$agent_end" "$dest" || true)"
+    if [ "$begins" != "$ends" ]; then
+        echo "ERROR: $dest has unbalanced notes-site markers ($begins begin, $ends end)." >&2
+        echo "Fix them by hand (or delete the whole block) and re-run." >&2
+        rm -f "$block"
+        exit 1
+    fi
+
+    if [ "$begins" -gt 1 ]; then
+        echo "ERROR: $dest has $begins notes-site blocks; this script only ever writes one." >&2
+        echo "Delete the extras by hand and re-run." >&2
+        rm -f "$block"
+        exit 1
+    fi
+
+    local tmp
+    tmp="$(mktemp)"
+    if [ "$begins" -eq 1 ]; then
+        awk -v b="$agent_begin" -v e="$agent_end" -v f="$block" '
+            BEGIN { while ((getline line < f) > 0) replacement = replacement line "\n" }
+            $0 == b { skip = 1; printf "%s", replacement; next }
+            $0 == e { skip = 0; next }
+            !skip
+        ' "$dest" > "$tmp"
+        echo "refreshed the notes-site block in AGENT.md"
+    else
+        local kept
+        kept="$(cat "$dest")"
+        {
+            [ -n "$kept" ] && printf '%s\n\n' "$kept"
+            cat "$block"
+        } > "$tmp"
+        echo "appended the notes-site block to AGENT.md"
+    fi
+    cat "$tmp" > "$dest"
+    rm -f "$tmp" "$block"
+}
+
 # What is deliberately NOT copied:
 #   .git                      version control state.
 #   notes                     this template's own example notes; the
 #                             destination keeps whatever it already has.
+#   build/public              generated output; destinations rebuild these.
 #   references                the destination's own bibliography and papers
 #                             (.bib, PDFs). The CSL citation *style* is
 #                             machinery and ships under site/csl/, which IS
@@ -115,12 +194,16 @@ merge_gitignore() {
 #   agent files               AI-assistant context that only makes sense in
 #                             this template (.claude, .codex, .cursor,
 #                             AGENT.md, AGENTS.md, CLAUDE.md, GEMINI.md, ...).
+#                             A managed notes-site block is merged separately
+#                             into the destination's AGENT.md.
 #   Python project files      packaging/env/cache, never the machinery itself
 #                             (the *.py scripts ARE the machinery and are
 #                             copied): __pycache__, *.egg-info, .venv, venv,
 #                             pyproject.toml, setup.py/cfg, requirements*.txt,
 #                             Pipfile*, poetry.lock, uv.lock, .python-version,
 #                             .mypy_cache, .ruff_cache, .pytest_cache, .tox.
+#   downstream-agent-block.md source for the managed AGENT.md block; merged
+#                             separately instead of copied as a file.
 #   readme/docs               README* and docs/; the destination documents
 #                             itself.
 shopt -s dotglob nullglob
@@ -129,7 +212,8 @@ for entry in "$src_dir"/*; do
     name="$(basename "$entry")"
     case "$name" in
         # version control, example content, gitignore (handled below)
-        .git|notes|references|.gitignore|.gitignore_alt) continue ;;
+        .git|notes|build|public|references|.gitignore|.gitignore_alt) continue ;;
+        downstream-agent-block.md) continue ;;
         # agent / AI-assistant files
         .claude|.codex|.cursor|.cursorrules|.aider*) continue ;;
         AGENT.md|AGENTS.md|CLAUDE.md|GEMINI.md|.clauderc) continue ;;
@@ -162,6 +246,11 @@ if [ -f "$dest_dir/.gitignore" ]; then
 else
     echo "  .gitignore"
 fi
+if [ -f "$dest_dir/AGENT.md" ]; then
+    echo "  AGENT.md (managed notes-site block merged; your own text kept)"
+else
+    echo "  AGENT.md (created with managed notes-site block)"
+fi
 
 if [ "$assume_yes" -ne 1 ]; then
     read -r -p "Proceed? [y/N] " reply
@@ -180,5 +269,6 @@ for entry in "${entries[@]}"; do
     cp -a "$entry" "$dest_dir/"
 done
 merge_gitignore
+merge_agent_block
 
 echo "Done."
