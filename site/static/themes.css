@@ -28,6 +28,7 @@
   --code-fg: #ede0ce;
   --inline-code-fg: #5fbf5f;
   --verbatim-fg: #8f2f2f;
+  --concept-fg: #c678dd;
 
   --selection: #a60033;
   --nav-bg: var(--bg);
@@ -73,6 +74,7 @@ html[data-theme="light"] {
   --code-fg: #586e75;
   --inline-code-fg: #859900;
   --verbatim-fg: #8b2f2f;
+  --concept-fg: #6c3f7d;
 
   --selection: #eee8d5;
   --nav-bg: var(--bg);

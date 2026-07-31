@@ -253,6 +253,8 @@ single visible `<h1>`.
 Reusable macros should usually live in `site/latex/macros.tex` and be included
 from notes with `\input`. Plain `\newcommand` definitions are expanded by
 pandoc during HTML conversion, so MathJax does not need duplicate definitions.
+The file also provides `\concept{...}`, whose site color follows the selected
+theme (and has a matching fixed color in PDFs).
 
 For direct PDF builds of a hand-written note, compile from the note directory
 so relative `\input` and figure paths resolve naturally:

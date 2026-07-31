@@ -48,6 +48,10 @@ IMG_SRC_RE = re.compile(
     r"(?P<prefix><img\b[^>]*\bsrc\s*=\s*)(?P<quote>[\"'])(?P<src>.*?)(?P=quote)",
     re.IGNORECASE | re.DOTALL,
 )
+CONCEPT_SPAN_RE = re.compile(
+    r'<span\s+style="color:\s*concept\s*">(?P<content>.*?)</span>',
+    re.IGNORECASE | re.DOTALL,
+)
 CONTENT_HASH_LENGTH = 12
 
 
@@ -161,6 +165,14 @@ def add_image_content_hashes(fragment: str, source_dir: Path) -> str:
     return IMG_SRC_RE.sub(replace, fragment)
 
 
+def make_concepts_theme_aware(fragment: str) -> str:
+    """Replace Pandoc's inline color for ``\\concept`` with a CSS class."""
+    return CONCEPT_SPAN_RE.sub(
+        lambda match: f'<span class="concept">{match.group("content")}</span>',
+        fragment,
+    )
+
+
 def export_fragment(note: Path, notes_dir: Path, fragments_dir: Path) -> None:
     out_file = fragments_dir / note.relative_to(notes_dir).with_suffix(".html")
     out_file.parent.mkdir(parents=True, exist_ok=True)
@@ -178,10 +190,8 @@ def export_fragment(note: Path, notes_dir: Path, fragments_dir: Path) -> None:
         fail(f"pandoc failed on {note} (exit {result.returncode})")
 
     fragment = out_file.read_text(encoding="utf-8")
-    out_file.write_text(
-        add_image_content_hashes(fragment, note.parent),
-        encoding="utf-8",
-    )
+    fragment = add_image_content_hashes(fragment, note.parent)
+    out_file.write_text(make_concepts_theme_aware(fragment), encoding="utf-8")
 
 
 def copy_latex(note: Path, notes_dir: Path, latex_dir: Path) -> None:

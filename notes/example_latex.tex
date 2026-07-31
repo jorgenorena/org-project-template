@@ -13,7 +13,8 @@
 \usepackage{listings}
 
 % Shared, reusable pieces (see AGENT.md "Writing notes in LaTeX"):
-%   macros.tex  -- \newcommand macros, expanded by pandoc for the web.
+%   macros.tex  -- 
+ewcommand macros, expanded by pandoc for the web.
 %   header.tex  -- packages (mathtools, tcolorbox) and the `info` box.
 \input{../site/latex/macros}
 \input{../site/latex/header}
@@ -27,6 +28,8 @@ fragment by pandoc and then wrapped into a page by \texttt{build\_site.py},
 exactly like the Org notes. Math is left untouched for MathJax:
 %
 \[ \hat{P}(k) = \frac{1}{V N_k} \sum_{|\vv{p}| \in k} \delta(\vv{p}) \delta(-\vv{p}) \,. \]
+
+\concept{Concepts} follow the active site theme.
 
 Inline math and shared macros work too: the linear power spectrum
 \(\PL(k)\) and the measure \(\dd^3 q\) both come from

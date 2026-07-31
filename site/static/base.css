@@ -604,11 +604,17 @@ div.sourceCode[data-language]::before {
   content: attr(data-language);
 }
 
-/* Inline code from LaTeX notes (\texttt, \verb) uses the mono font. */
+/* Inline code from LaTeX notes (\texttt, \verb) matches Org =code=. */
 :not(pre) > code {
+  color: var(--inline-code-fg);
   font-family: var(--font-mono);
   font-size: 0.95em;
   background: transparent;
+}
+
+/* \concept from LaTeX notes is rewritten to this semantic class on export. */
+.concept {
+  color: var(--concept-fg);
 }
 
 /* =========================

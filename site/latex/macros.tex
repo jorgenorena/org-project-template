@@ -6,6 +6,14 @@
 % including inside math and with arguments. Exotic macros (\def, xparse,
 % optional arguments) may not be expanded -- see AGENT.md.
 
+\RequirePackage{xcolor}
+\definecolor{concept}{HTML}{7A4E91}
+
+% The exporter turns the resulting named-color span into class="concept", so
+% the website color follows the active theme. The definition above is used for
+% native PDF builds.
+\newcommand{\concept}[1]{\textcolor{concept}{#1}}
+
 \newcommand{\dd}{\mathrm{d}}
 \newcommand{\vv}[1]{\mathbf{#1}}
 \newcommand{\PL}{P_{\mathrm{L}}}
